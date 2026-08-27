@@ -37,6 +37,10 @@ python llmram.py --model glm-52 --gpu b300
 # what can I run on one 24 GB card?
 python llmram.py --gpu rtx4090 --max-ram 22 --context 8192
 
+# everything one machine can run, with decode speed and time-to-first-token
+python llmram.py --host m3ultra --context 32768
+python llmram.py --host dgxspark
+
 # long-context serving on an 8x H200 node
 python llmram.py --context 1000000 --weights fp8 --gpu h200
 
@@ -44,9 +48,32 @@ python llmram.py --context 1000000 --weights fp8 --gpu h200
 python generate_leaderboard.py > LEADERBOARD.md
 ```
 
-Useful flags: `--context`, `--weights {bf16,fp8,int4,nvfp4,mxfp4,native}`,
-`--kv {bf16,fp8}`, `--gpu` (see `--list-gpus`), `--tier`, `--max-ram`,
-`--sort {params,ram,score,active}`, `--markdown`.
+Useful flags: `--context`, `--weights {bf16,fp8,int4,nvfp4,mxfp4,q3,q2,native}`,
+`--kv {fp32,bf16,fp8}`, `--gpu` / `--host` (see `--list-gpus`), `--tier`,
+`--max-ram`, `--sort {params,ram,score,active}`, `--markdown`.
+
+## Capacity is not the same as usability
+
+`--host` answers "what can this machine actually run" rather than "what fits",
+because three different limits bind at different points:
+
+- **Capacity** — total parameters. Sets what loads at all.
+- **Bandwidth** — decode reads every *active* parameter once per token, so
+  tokens/second is bandwidth ÷ active-parameter bytes. Total parameters do not
+  appear. This is why a sparse 400B model generates faster than a dense 253B one.
+- **Compute** — prefill costs ~2 FLOPs per active parameter per token, so it sets
+  time-to-first-token on a long prompt. This is the limit that bites
+  unified-memory hardware, and the one most "can it run X" tables ignore.
+
+On a 512 GB Mac Studio the consequence is stark: GLM-5.2 fits and generates at
+about 11 tok/s, but takes over three minutes to read a 32K prompt. Qwen3.5-35B-A3B
+fits twenty times over, generates at ~146 tok/s, and reads the same prompt in 12
+seconds. Both "fit".
+
+Decode efficiency is modelled separately for dense and MoE models (62% vs 30% of
+theoretical bandwidth) because MoE decode does small gathered GEMMs over
+scattered experts. Both figures are calibrated against measured Apple Silicon
+benchmarks, not assumed.
 
 ## What "RAM for one call" includes
 
@@ -76,7 +103,7 @@ size**. Three examples from the database:
 It is calibrated against published measurements, and those checks run as tests:
 
 ```bash
-python -m pytest test_llmram.py -q     # 21 passed
+python -m pytest test_llmram.py -q     # 33 passed
 ```
 
 It reproduces, without per-model fudge factors:
@@ -91,6 +118,13 @@ It reproduces, without per-model fudge factors:
 | Nemotron 3 Ultra minimum 4x B200 / 8x H100 | NVIDIA NIM model card | matches |
 | gpt-oss-120b on one 80 GB GPU | OpenAI | matches |
 | Qwen3.5-35B-A3B ≈ 22 GB at Q4 on an RTX 4090 | Qwen setup guides | matches |
+| Qwen3.8-27B ≈ 56 / 28 / 14–17 GB at BF16 / FP8 / 4-bit | Qwen model card | matches to 5% |
+| Qwen3.8-27B Gated DeltaNet state ≈ 150 MB | architecture analysis | 151 MB at FP32 |
+| Kimi K2.5 GGUF: UD-Q2_K_XL 375 GB, UD-TQ1_0 240 GB | Unsloth quant sizes | matches to 5% |
+| DeepSeek V4-Flash MLX peak 147–159 GB on M3 Ultra | oMLX benchmarks | 161 GB computed |
+| DeepSeek V4-Flash 25 tok/s baseline, 35–43 with MTP | oMLX + maclocal-api | 34 tok/s |
+| Kimi K2.5 8–21 tok/s on a 512 GB Mac Studio | community reports | 14–20 tok/s |
+| ~127 tok/s for a 7B at Q4 on M3 Ultra | llmrun device data | ~100 tok/s at 9B |
 
 The one calibration worth knowing about: sub-8-bit formats are modelled at
 4.25–4.5 effective bits plus a 5% uplift, because real checkpoints leave

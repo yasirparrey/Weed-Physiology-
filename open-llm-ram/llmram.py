@@ -42,6 +42,12 @@ WEIGHT_BYTES = {
     "nvfp4": 4.5 / 8,
     "mxfp4": 4.25 / 8,
     "fp4_fp8_mixed": 4.5 / 8,
+    # Sub-4-bit community GGUF builds. Calibrated on the published sizes of the
+    # Kimi K2.5 1T quants: UD-Q2_K_XL is 375 GB (3.0 bits) and UD-TQ1_0 is
+    # 240 GB (1.9 bits). Those measurements already include everything, so no
+    # further uplift is applied.
+    "q3": 3.0 / 8,
+    "q2": 1.9 / 8,
 }
 
 # Real checkpoints never quantise everything: embeddings, norms, routers, the LM
@@ -49,7 +55,7 @@ WEIGHT_BYTES = {
 # uplifts are calibrated against measured checkpoints - Kimi K3's MXFP4 release
 # is 1,560.9 GB against 1,487.5 GB of naive math (+4.9%), and DeepSeek V4-Flash
 # is 166.9 GB against 159.8 GB (+4.5%).
-QUANT_UPLIFT = {"bf16": 1.0, "fp16": 1.0, "fp8": 1.02}
+QUANT_UPLIFT = {"bf16": 1.0, "fp16": 1.0, "fp8": 1.02, "q3": 1.0, "q2": 1.0}
 QUANT_UPLIFT_DEFAULT = 1.05
 
 KV_BYTES = {"fp32": 4.0, "bf16": 2.0, "fp16": 2.0, "fp8": 1.0}
@@ -69,24 +75,52 @@ ACT_BUFFERS = 24
 FIXED_OVERHEAD_GB = 1.0
 DEFAULT_HIDDEN_SIZE = 4096  # only used when a model card omits hidden_size
 
-# key -> (display name, memory GB, kind). Unified-memory hosts have the capacity
-# to hold big models but a fraction of the bandwidth, so they are excluded when
-# picking the "smallest thing this fits on" and only used when asked for by name.
+@dataclass(frozen=True)
+class Device:
+    name: str
+    memory_gb: float
+    kind: str  # discrete | unified
+    bandwidth_gbs: float
+    # Fraction of total memory macOS lets Metal wire by default. Raisable with
+    # `sudo sysctl iogpu.wired_limit_mb=<MB>`; None for discrete GPUs.
+    default_cap_frac: float | None = None
+    os_reserve_gb: float = 0.0
+    # Effective matmul throughput for prefill, in TFLOP/s. Back-solved from
+    # measured prompt-processing rates rather than taken from spec sheets:
+    # DeepSeek V4-Flash (13B active) prefills at 542-630 tok/s on M3 Ultra,
+    # which is 2 x 13e9 x 630 = 16.4 TFLOP/s.
+    prefill_tflops: float | None = None
+
+
+# Unified-memory hosts have the capacity to hold very large models but a
+# fraction of the bandwidth, so they are excluded when picking the "smallest
+# thing this fits on" and only used when asked for by name.
 GPUS = {
-    "rtx4090": ("RTX 4090", 24, "discrete"),
-    "rtx5090": ("RTX 5090", 32, "discrete"),
-    "l40s": ("L40S", 48, "discrete"),
-    "a100": ("A100 80GB", 80, "discrete"),
-    "h100": ("H100 80GB", 80, "discrete"),
-    "rtx6000pro": ("RTX 6000 Pro Blackwell", 96, "discrete"),
-    "h200": ("H200", 141, "discrete"),
-    "b200": ("B200", 180, "discrete"),
-    "mi300x": ("MI300X", 192, "discrete"),
-    "b300": ("B300", 288, "discrete"),
-    "mi355x": ("MI355X", 288, "discrete"),
-    "dgxspark": ("DGX Spark (unified)", 128, "unified"),
-    "m3ultra": ("Mac Studio M3 Ultra (unified)", 512, "unified"),
+    "rtx4090": Device("RTX 4090", 24, "discrete", 1008),
+    "rtx5090": Device("RTX 5090", 32, "discrete", 1792),
+    "l40s": Device("L40S", 48, "discrete", 864),
+    "a100": Device("A100 80GB", 80, "discrete", 2039),
+    "h100": Device("H100 80GB", 80, "discrete", 3350),
+    "rtx6000pro": Device("RTX 6000 Pro Blackwell", 96, "discrete", 1792),
+    "h200": Device("H200", 141, "discrete", 4800),
+    "b200": Device("B200", 180, "discrete", 8000),
+    "mi300x": Device("MI300X", 192, "discrete", 5300),
+    "b300": Device("B300", 288, "discrete", 8000),
+    "mi355x": Device("MI355X", 288, "discrete", 8000),
+    "dgxspark": Device("DGX Spark (unified)", 128, "unified", 273, 0.75, 8, 31),
+    "m3ultra-96": Device("Mac Studio M3 Ultra 96GB", 96, "unified", 819, 0.75, 8, 17),
+    "m3ultra-256": Device("Mac Studio M3 Ultra 256GB", 256, "unified", 819, 0.75, 16, 17),
+    "m3ultra": Device("Mac Studio M3 Ultra 512GB", 512, "unified", 819, 0.75, 32, 17),
 }
+
+# Decode is memory-bandwidth bound: each token reads every active weight once.
+# Measured efficiency against theoretical bandwidth splits sharply by model type,
+# because MoE decode does small gathered GEMMs over scattered experts while a
+# dense model streams contiguous weights.
+#   dense : ~127 tok/s reported for a 7B at Q4 on M3 Ultra -> ~61%
+#   MoE   : DeepSeek V4-Flash (13B active, MXFP4) measured 25 tok/s baseline and
+#           35-43 tok/s with MTP on M3 Ultra -> 21-36%
+BANDWIDTH_EFFICIENCY = {"dense": 0.62, "moe": 0.30}
 # Engines cannot address 100% of a card. vLLM defaults to 0.90 and single-model
 # deployments commonly raise it; Moonshot's own K3 sizing guide uses 0.95.
 GPU_UTIL = 0.95
@@ -295,9 +329,46 @@ def effective_context(model: Model, requested: int) -> tuple[int, bool]:
 
 
 def gpus_needed(total_gb: float, gpu_key: str) -> tuple[int, str]:
-    name, mem, _kind = GPUS[gpu_key]
-    n = math.ceil(total_gb / (mem * GPU_UTIL))
-    return n, name
+    dev = GPUS[gpu_key]
+    n = math.ceil(total_gb / (dev.memory_gb * GPU_UTIL))
+    return n, dev.name
+
+
+def decode_tps(model: Model, precision: str, device: Device) -> float:
+    """Estimated single-stream decode speed in tokens/second.
+
+    Decode reads every active parameter once per token, so the ceiling is
+    bandwidth divided by the bytes those active parameters occupy. Total
+    parameters do not appear here at all - that is the whole reason a sparse
+    2.4T model can generate at a usable rate on hardware that can barely hold it.
+    """
+    if precision == "native":
+        precision = model.native_precision
+    bytes_per_token = model.active_params_b * 1e9 * weight_bytes_per_param(precision)
+    ceiling = device.bandwidth_gbs * GB / bytes_per_token
+    return ceiling * BANDWIDTH_EFFICIENCY["dense" if model.is_dense else "moe"]
+
+
+def prefill_tps(model: Model, device: Device) -> float | None:
+    """Estimated prompt-processing rate in tokens/second.
+
+    Prefill is compute-bound, not bandwidth-bound: it costs roughly 2 FLOPs per
+    active parameter per token. This is where unified-memory hardware suffers,
+    and it is what sets time-to-first-token on a long prompt.
+    """
+    if device.prefill_tflops is None:
+        return None
+    return device.prefill_tflops * 1e12 / (2 * model.active_params_b * 1e9)
+
+
+def usable_memory_gb(device: Device, raised_cap: bool = True) -> float:
+    """Memory an inference engine can actually address on this device."""
+    if device.kind != "unified":
+        return device.memory_gb * GPU_UTIL
+    if raised_cap:
+        # Raise iogpu.wired_limit_mb and leave the OS its reserve.
+        return device.memory_gb - device.os_reserve_gb
+    return device.memory_gb * (device.default_cap_frac or 0.75)
 
 
 # ------------------------------------------------------------------------ printing
@@ -354,9 +425,9 @@ def headline_score(m: Model) -> float | None:
 
 def smallest_fit(total_gb: float) -> str:
     """Smallest single discrete accelerator that holds the call, else a GPU count."""
-    for name, mem, kind in sorted(GPUS.values(), key=lambda g: g[1]):
-        if kind == "discrete" and total_gb <= mem * GPU_UTIL:
-            return f"1x {name}"
+    for dev in sorted(GPUS.values(), key=lambda d: d.memory_gb):
+        if dev.kind == "discrete" and total_gb <= dev.memory_gb * GPU_UTIL:
+            return f"1x {dev.name}"
     n_h200, _ = gpus_needed(total_gb, "h200")
     n_b300, _ = gpus_needed(total_gb, "b300")
     return f"{n_h200}x H200 / {n_b300}x B300"
@@ -474,7 +545,7 @@ def print_detail(m: Model, args) -> None:
     print()
 
     print("  RAM for one call")
-    print(f"  {'context':>10}  {'weights':>10}  {'KV+state':>10}  {'act':>8}  {'total':>10}  {GPUS[args.gpu][0]}")
+    print(f"  {'context':>10}  {'weights':>10}  {'KV+state':>10}  {'act':>8}  {'total':>10}  {GPUS[args.gpu].name}")
     for ctx in contexts:
         b = estimate(
             m,
@@ -509,6 +580,121 @@ def print_detail(m: Model, args) -> None:
         print("  " + "\n  ".join(_wrap(" ".join(m.raw["notes"].split()), 76)))
 
 
+def print_host_report(models: list[Model], args) -> None:
+    """What one machine can actually run, ordered by capability."""
+    dev = GPUS[args.host]
+    usable = usable_memory_gb(dev, raised_cap=True)
+    default = usable_memory_gb(dev, raised_cap=False)
+
+    print(f"{dev.name}")
+    print("=" * len(dev.name))
+    print(f"  total memory        {dev.memory_gb:.0f} GB {dev.kind}")
+    print(f"  memory bandwidth    {dev.bandwidth_gbs:.0f} GB/s")
+    if dev.kind == "unified":
+        print(
+            f"  addressable         {default:.0f} GB by default "
+            f"({dev.default_cap_frac:.0%} cap), {usable:.0f} GB after raising "
+            f"iogpu.wired_limit_mb"
+        )
+        print(f"                      sudo sysctl iogpu.wired_limit_mb={int(usable * 1024)}")
+    else:
+        print(f"  addressable         {usable:.0f} GB at {GPU_UTIL:.0%} utilisation")
+    print(f"  context assumed     {args.context:,} tokens, weights {args.weights}, KV {args.kv}")
+    print()
+
+    fits, too_big = [], []
+    for m in models:
+        ctx, _ = effective_context(m, args.context)
+        b = estimate(m, ctx, args.weights, args.kv, prefill_chunk=args.prefill_chunk)
+        row = (m, b, decode_tps(m, args.weights, dev))
+        (fits if b.total_gb <= usable else too_big).append(row)
+
+    fits.sort(key=lambda r: -(headline_score(r[0]) or -1))
+
+    headers = [
+        ("model", "Model"),
+        ("total", "Total"),
+        ("active", "Active"),
+        ("ram", "RAM / call"),
+        ("headroom", "Headroom"),
+        ("tps", "Decode"),
+        ("ttft", f"TTFT @{fmt_ctx(args.context)}"),
+        ("verdict", "Usable for"),
+        ("license", "License"),
+    ]
+    rows = []
+    for m, b, tps in fits:
+        pp = prefill_tps(m, dev)
+        rows.append(
+            {
+                "model": m.name,
+                "total": fmt_params(m.total_params_b),
+                "active": fmt_params(m.active_params_b),
+                "ram": fmt_gb(b.total_gb),
+                "headroom": fmt_gb(usable - b.total_gb),
+                "tps": f"{tps:.0f} tok/s",
+                "ttft": fmt_duration(args.context / pp) if pp else "-",
+                "verdict": speed_verdict(tps),
+                "license": m.license,
+            }
+        )
+    widths = {k: max(len(h), max((len(r[k]) for r in rows), default=0)) for k, h in headers}
+    print(f"  RUNS ({len(rows)} of {len(models)} models fit)")
+    print("  " + "  ".join(h.ljust(widths[k]) for k, h in headers))
+    print("  " + "  ".join("-" * widths[k] for k, _ in headers))
+    for r in rows:
+        print("  " + "  ".join(r[k].ljust(widths[k]) for k, _ in headers))
+
+    if too_big:
+        print()
+        print(f"  DOES NOT FIT at {args.weights} ({len(too_big)})")
+        for m, b, _ in sorted(too_big, key=lambda r: r[1].total_gb):
+            over = b.total_gb - usable
+            rescue = ""
+            for lower in ("q3", "q2"):
+                alt = estimate(m, args.context, lower, args.kv, prefill_chunk=args.prefill_chunk)
+                if alt.total_gb <= usable:
+                    rescue = (
+                        f"  -> fits at {lower} ({fmt_gb(alt.total_gb)}, "
+                        f"{decode_tps(m, lower, dev):.0f} tok/s)"
+                    )
+                    break
+            print(
+                f"    {m.name:<38} needs {fmt_gb(b.total_gb):>9}, "
+                f"{fmt_gb(over):>8} over{rescue}"
+            )
+
+    print()
+    print(
+        "  Decode is bandwidth-bound: tokens/second is bandwidth divided by the\n"
+        "  bytes of ACTIVE parameters, so sparse models stay usable at sizes that\n"
+        "  fill the machine. Prompt processing is compute-bound instead and is the\n"
+        "  real weakness of unified-memory hardware."
+        if dev.kind == "unified"
+        else "  Decode estimate is bandwidth-bound and assumes single-stream generation."
+    )
+
+
+def fmt_duration(seconds: float) -> str:
+    if seconds < 60:
+        return f"{seconds:.0f}s"
+    if seconds < 3600:
+        return f"{seconds / 60:.0f}m{seconds % 60:02.0f}s"
+    return f"{seconds / 3600:.1f}h"
+
+
+def speed_verdict(tps: float) -> str:
+    if tps >= 60:
+        return "realtime chat, agents"
+    if tps >= 25:
+        return "comfortable interactive"
+    if tps >= 10:
+        return "usable, visibly slow"
+    if tps >= 4:
+        return "batch / overnight only"
+    return "impractical"
+
+
 def _wrap(text: str, width: int) -> list[str]:
     words, lines, cur = text.split(), [], ""
     for w in words:
@@ -541,6 +727,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--kv", default="fp8", choices=list(KV_BYTES), help="KV cache precision")
     p.add_argument("--gpu", default="h200", choices=list(GPUS), help="accelerator to size against")
+    p.add_argument(
+        "--host",
+        choices=list(GPUS),
+        help="report everything one machine can run, with decode speed estimates",
+    )
     p.add_argument("--prefill-chunk", type=int, default=DEFAULT_PREFILL_CHUNK)
     p.add_argument("--tier", help="filter by tier (frontier, strong, mid, small, legacy)")
     p.add_argument("--max-ram", type=float, help="only show models fitting in this many GB")
@@ -554,8 +745,11 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     if args.list_gpus:
-        for key, (name, mem, kind) in GPUS.items():
-            print(f"  {key:<12} {name:<32} {mem:>4} GB  {kind}")
+        for key, d in GPUS.items():
+            print(
+                f"  {key:<12} {d.name:<32} {d.memory_gb:>5.0f} GB  "
+                f"{d.bandwidth_gbs:>5.0f} GB/s  {d.kind}"
+            )
         return 0
 
     models, _ = load_models()
@@ -571,6 +765,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.tier:
         models = [m for m in models if m.tier == args.tier]
+
+    if args.host:
+        print_host_report(models, args)
+        return 0
 
     def total_for(m: Model) -> float:
         ctx, _ = effective_context(m, args.context)

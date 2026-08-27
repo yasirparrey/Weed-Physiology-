@@ -143,6 +143,63 @@ def test_gpt_oss_120b_fits_one_80gb_card():
     assert llmram.gpus_needed(b.total_gb, "h100")[0] == 1
 
 
+def test_kimi_k25_gguf_quant_sizes_match_published():
+    """Published Kimi K2.5 1T quants: UD-Q2_K_XL = 375 GB, UD-TQ1_0 = 240 GB."""
+    m = MODELS["kimi-k25"]
+    assert rel(weights_gb(m, "q3")[0], 375) < 0.05
+    assert rel(weights_gb(m, "q2")[0], 240) < 0.05
+
+
+# ------------------------------------------------------ Apple Silicon / bandwidth
+
+
+def test_deepseek_v4_flash_mlx_footprint_matches_measured_on_m3_ultra():
+    """Measured on M3 Ultra 512GB: 147-159 GB peak footprint for the MXFP4 MLX build."""
+    b = estimate(MODELS["deepseek-v4-flash"], context=16_384, weights_precision="mxfp4")
+    assert 145 <= b.total_gb <= 165, b.total_gb
+
+
+def test_deepseek_v4_flash_decode_speed_matches_measured_on_m3_ultra():
+    """Measured 25 tok/s baseline MLX, 35-43 tok/s with MTP, on M3 Ultra 512GB."""
+    tps = llmram.decode_tps(MODELS["deepseek-v4-flash"], "mxfp4", llmram.GPUS["m3ultra"])
+    assert 25 <= tps <= 45, tps
+
+
+def test_kimi_k25_decode_speed_matches_community_reports_on_m3_ultra():
+    """Community reports: 8-15 tok/s at Q2, 10-21 tok/s at Q4 on a single 512GB unit."""
+    q3 = llmram.decode_tps(MODELS["kimi-k25"], "q3", llmram.GPUS["m3ultra"])
+    int4 = llmram.decode_tps(MODELS["kimi-k25"], "int4", llmram.GPUS["m3ultra"])
+    assert 8 <= q3 <= 25, q3
+    assert 10 <= int4 <= 21, int4
+
+
+def test_dense_7b_class_hits_reported_m3_ultra_speed():
+    """Reported: ~127 tok/s for a 7B at Q4 on M3 Ultra; the 9B should be near it."""
+    tps = llmram.decode_tps(MODELS["qwen35-9b"], "int4", llmram.GPUS["m3ultra"])
+    assert 85 <= tps <= 115, tps
+
+
+def test_decode_speed_depends_on_active_not_total_params():
+    """A 397B sparse model must decode faster than a 253B dense one."""
+    dev = llmram.GPUS["m3ultra"]
+    sparse = llmram.decode_tps(MODELS["qwen35-397b"], "int4", dev)
+    dense = llmram.decode_tps(MODELS["nemotron-ultra-253b"], "int4", dev)
+    assert sparse > 5 * dense
+
+
+def test_m3_ultra_512_addressable_memory():
+    """Default Metal cap is ~75% (384 GB); raising the sysctl gets ~480 GB."""
+    dev = llmram.GPUS["m3ultra"]
+    assert llmram.usable_memory_gb(dev, raised_cap=False) == pytest.approx(384)
+    assert llmram.usable_memory_gb(dev, raised_cap=True) == pytest.approx(480)
+
+
+def test_kimi_k3_does_not_fit_a_512gb_mac_at_any_quant():
+    """2.8T is out of reach even at 1.9 bits: 665 GB of weights."""
+    usable = llmram.usable_memory_gb(llmram.GPUS["m3ultra"])
+    assert weights_gb(MODELS["kimi-k3"], "q2")[0] > usable
+
+
 # --------------------------------------------------------------- sizing outcomes
 
 
