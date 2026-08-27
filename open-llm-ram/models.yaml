@@ -76,6 +76,78 @@ models:
       2.8T x 4-bit math because MXFP4 costs 4.25 bits and attention, shared
       experts, the LM head, and the vision tower are excluded from quantization.
 
+  - id: qwen38-max
+    name: Qwen3.8-2.4T-A95B (open Qwen3.8 Max)
+    vendor: Alibaba (Qwen)
+    released: 2026-08-12
+    license: Qwen custom (commercial agreement above $50M revenue)
+    total_params_b: 2400
+    active_params_b: 95
+    context_native: 262144
+    context_extended: 1010000
+    native_precision: bf16
+    modality: [text]
+    tier: frontier
+    scores: {gpqa_diamond: 92.6, paperbench: 93.0, osworld: 86.1}
+    arch:
+      attention: Gated DeltaNet + Gated Attention (Qwen3.5 hybrid design)
+      hidden_size: 8192
+      experts: {total: 512, routed_per_token: 10, shared: 1}
+      kv:
+        source: estimated
+        bytes_per_token_bf16: 40960
+        note: >
+          Layer count is not published. Assumes the Qwen3.5 3:1 Gated DeltaNet
+          to Gated Attention ratio holds over a deeper stack, with ~20 growing
+          attention layers at 2 KV heads x head dim 256. The fixed recurrent
+          state of the linear layers is not modelled and adds a few hundred MB.
+    notes: >
+      The first Qwen Max-tier model with downloadable weights, published on
+      ModelScope 2026-08-12. Two things to keep straight: the hosted
+      `qwen3.8-max` API is an enhanced build on top of this base checkpoint and
+      adds native vision, while the open weights are text-only. The license is
+      not Apache 2.0 - it requires a separate commercial agreement above $50M
+      revenue in consecutive twelve-month periods. Launch coverage quoted
+      "roughly 1.2 TB at 4-bit" using naive 2.4T x 4 bits; the figure here is
+      higher because real 4-bit checkpoints carry block scales and leave
+      attention, embeddings and the LM head at higher precision.
+
+  - id: qwen38-27b
+    name: Qwen3.8-27B
+    vendor: Alibaba (Qwen)
+    released: 2026-08-14
+    license: Apache 2.0
+    total_params_b: 28
+    active_params_b: 28
+    context_native: 262144
+    context_extended: 1010000
+    native_precision: bf16
+    modality: [text, image, video]
+    tier: strong
+    scores: {swe_bench_pro: 61.7, terminal_bench: 73.0, livecodebench: 90.3, osworld: 84.3}
+    arch:
+      attention: 3:1 Gated DeltaNet + Gated Attention
+      layers: 64
+      hidden_size: 5120
+      kv:
+        source: config
+        growing:
+          - {kind: gqa, layers: 16, kv_heads: 4, k_head_dim: 256, v_head_dim: 256}
+        recurrent:
+          - {kind: linear_attn, layers: 48, heads: 48, head_k_dim: 128, head_v_dim: 128}
+      note: >
+        16 x (3 x Gated DeltaNet -> 1 x Gated Attention). Gated Attention runs
+        24 Q / 4 KV heads at head dim 256 with RoPE dim 64; Gated DeltaNet runs
+        48 V / 16 QK heads at head dim 128. Only the 16 attention layers grow
+        with context, which is what makes 262K affordable on one GPU.
+    notes: >
+      27B text tower plus a vision encoder, 28B on disk, which is the number
+      that matters for memory. Published fits: ~56 GB at BF16, ~28 GB at FP8,
+      ~14-17 GB at 4-bit. Note that one widely-shared analysis quotes 12-16 GB
+      of KV cache at 100K context; that figure assumes an FP32 cache. At the
+      FP8 or BF16 cache every serving stack actually uses, the same call costs
+      3.1 GB or 6.3 GB.
+
   - id: deepseek-v4-pro
     name: DeepSeek V4-Pro
     vendor: DeepSeek
@@ -1253,11 +1325,12 @@ models:
 # Models that show up on "best open source LLM" lists but do not ship weights,
 # or ship them under terms that are not open. Listed so the omission is explicit.
 excluded:
-  - name: Qwen3.8 Max
+  - name: Qwen3.5-Max / 3.6-Max / 3.7-Max
     reason: >
-      Appears on several open-source leaderboards, but Artificial Analysis lists
-      it as proprietary (weights not released). The open Qwen3.8 releases are the
-      smaller checkpoints such as Qwen3.8-27B (Apache 2.0).
+      API-only. Every Qwen Max generation before 3.8 stayed closed; Qwen3.8 broke
+      that pattern, so the 2.4T-A95B checkpoint IS included above. Trackers that
+      still list Qwen3.8 Max as proprietary are stale - the weights went up on
+      ModelScope on 2026-08-12.
   - name: Inkling (full)
     reason: >
       975B/41B. Thinking Machines' own comparison table places Inkling in the

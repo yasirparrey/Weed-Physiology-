@@ -102,6 +102,40 @@ def test_mistral_small_4_fp8_matches_published():
     assert rel(computed, 111) < 0.10
 
 
+def test_qwen38_27b_matches_published_single_gpu_fits():
+    """Published: ~56 GB at BF16, ~28 GB at FP8, ~14-17 GB at 4-bit."""
+    m = MODELS["qwen38-27b"]
+    assert rel(weights_gb(m, "bf16")[0], 56) < 0.05
+    assert rel(weights_gb(m, "fp8")[0], 28) < 0.05
+    assert 14 <= weights_gb(m, "int4")[0] <= 17.5
+
+
+def test_qwen38_27b_recurrent_state_matches_published():
+    """Published: the 48 Gated DeltaNet layers hold ~150 MB of fixed state."""
+    b = estimate(MODELS["qwen38-27b"], context=8192)
+    assert b.recurrent_gb * 1000 == pytest.approx(151, rel=0.05)
+
+
+def test_qwen38_27b_kv_is_a_quarter_of_a_full_attention_stack():
+    """Only 16 of 64 layers grow, so the cache is 64 KiB/token at BF16."""
+    b = estimate(MODELS["qwen38-27b"], context=100_000, kv_precision="bf16")
+    assert b.kv_bytes_per_token == pytest.approx(64 * KIB, rel=0.01)
+    # The widely-quoted "12-16 GB at 100K" only holds for an FP32 cache.
+    fp32_equivalent = b.kv_gb * 2
+    assert 12 <= fp32_equivalent <= 16
+
+
+def test_qwen38_max_is_open_weights_and_larger_than_deepseek_v4_pro():
+    """2.4T total / 95B active, weights published on ModelScope 2026-08-12."""
+    m = MODELS["qwen38-max"]
+    assert m.total_params_b == 2400
+    assert m.active_params_b == 95
+    assert m.total_params_b > MODELS["deepseek-v4-pro"].total_params_b
+    assert m.total_params_b < MODELS["kimi-k3"].total_params_b
+    # Even at 4-bit it is a multi-node model.
+    assert weights_gb(m, "int4")[0] > 1200
+
+
 def test_gpt_oss_120b_fits_one_80gb_card():
     """The headline claim for gpt-oss-120b: native MXFP4 on a single 80 GB GPU."""
     b = estimate(MODELS["gpt-oss-120b"], context=32768, weights_precision="mxfp4")

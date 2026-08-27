@@ -52,7 +52,13 @@ WEIGHT_BYTES = {
 QUANT_UPLIFT = {"bf16": 1.0, "fp16": 1.0, "fp8": 1.02}
 QUANT_UPLIFT_DEFAULT = 1.05
 
-KV_BYTES = {"bf16": 2.0, "fp16": 2.0, "fp8": 1.0}
+KV_BYTES = {"fp32": 4.0, "bf16": 2.0, "fp16": 2.0, "fp8": 1.0}
+
+# Linear-attention / delta-rule recurrent states are kept in FP32 by the kernels
+# in vLLM and flash-linear-attention, not in the KV cache dtype. That choice is
+# what puts Kimi K3's per-sequence state at the 427 MiB top of its published
+# 213-427 MiB range and Qwen3.8-27B's at the documented ~150 MB.
+DEFAULT_STATE_DTYPE = "fp32"
 
 # Activation/workspace model. A chunked-prefill engine holds roughly
 # CHUNK x hidden x 2 bytes x ACT_BUFFERS of transient activations, plus a flat
@@ -247,7 +253,7 @@ def estimate(
     context: int,
     weights_precision: str = "int4",
     kv_precision: str = "fp8",
-    recurrent_precision: str = "bf16",
+    recurrent_precision: str = DEFAULT_STATE_DTYPE,
     prefill_chunk: int = DEFAULT_PREFILL_CHUNK,
 ) -> Breakdown:
     w_gb, measured = weights_gb(model, weights_precision)

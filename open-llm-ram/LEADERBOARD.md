@@ -71,6 +71,7 @@ call at 32,768 tokens of context, 4-bit weights, FP8 KV cache.
 |---|---|---|---|---|---|---|---|---|
 | **Kimi K3** | Moonshot AI | 93.5 | 2.80T | 104B | 3.7% | 1.66 TB | 13x H200 / 7x B300 | Modified MIT |
 | **MiniMax M3** | MiniMax | 93 | 427B | 23B | 5.4% | 256 GB \* | 1x B300 | MIT |
+| **Qwen3.8-2.4T-A95B (open Qwen3.8 Max)** | Alibaba (Qwen) | 92.6 | 2.40T | 95B | 4.0% | 1.42 TB \* | 11x H200 / 6x B300 | Qwen custom (commercial agreement above $50M revenue) |
 | **GLM-5.2** | Z.ai (Zhipu AI) | 91.2 | 753B | 40B | 5.3% | 450 GB | 4x H200 / 2x B300 | MIT |
 | **Kimi K2.6** | Moonshot AI | 90.5 | 1T | 32B | 3.2% | 596 GB | 5x H200 / 3x B300 | Modified MIT |
 | **Hy3 295B-A21B** | Tencent Hunyuan | 90.4 | 295B | 21B | 7.1% | 182 GB | 1x MI300X | Tencent Hunyuan Community |
@@ -114,6 +115,7 @@ checkpoint where one is published, otherwise the model's shipped precision.
 | Model | Total | Active | BF16 | FP8 | 4-bit | Native | Context | Attention |
 |---|---|---|---|---|---|---|---|---|
 | **Kimi K3** | 2.80T | 104B | 5.60 TB | 2.86 TB | 1.66 TB | 1.57 TB (mxfp4) | 1M | 3:1 Kimi Delta Attention + gated MLA |
+| **Qwen3.8-2.4T-A95B (open Qwen3.8 Max)** | 2.40T | 95B | 4.80 TB | 2.45 TB | 1.42 TB | 4.80 TB (bf16) | 256K | Gated DeltaNet + Gated Attention (Qwen3.5 hybrid design) |
 | **DeepSeek V4-Pro** | 1.60T | 49B | 3.20 TB | 1.64 TB | 948 GB | 948 GB (fp4_fp8_mixed) | 1M | Compressed Sparse Attention + Heavily Compressed Attention |
 | **MiMo-V2.5-Pro** | 1.02T | 42B | 2.04 TB | 1.04 TB | 607 GB | 1.04 TB (fp8) | 1M | GQA with 6:1 sliding-window/global attention |
 | **Kimi K2.7 Code** | 1T | 32B | 2.00 TB | 1.02 TB | 596 GB | 1.02 TB (fp8) | 256K | MLA |
@@ -152,13 +154,14 @@ checkpoint where one is published, otherwise the model's shipped precision.
 | **Llama 4 Scout** | 109B | 17B | 224 GB | 117 GB | 71 GB | 224 GB (bf16) | 192K | GQA with iRoPE |
 | **GLM-4.5-Air** | 106B | 12B | 218 GB | 114 GB | 68 GB | 218 GB (bf16) | 128K | GQA |
 | **INTELLECT-3** | 106B | 12B | 216 GB | 112 GB | 67 GB | 216 GB (bf16) | 128K | GQA |
-| **Qwen3 Next 80B-A3B** | 80B | 3B | 162 GB | 84 GB | 49 GB | 162 GB (bf16) | 256K | 3:1 Gated DeltaNet + Gated Attention |
+| **Qwen3 Next 80B-A3B** | 80B | 3B | 162 GB | 84 GB | 50 GB | 162 GB (bf16) | 256K | 3:1 Gated DeltaNet + Gated Attention |
 | **LongCat-Flash-Lite 68.5B-A3B** | 68B | 3B | 140 GB | 73 GB | 44 GB | 140 GB (bf16) | 128K | MLA |
 | **Qwen3.5-35B-A3B** | 35B | 3B | 72 GB | 38 GB | 23 GB | 72 GB (bf16) | 256K | 3:1 Gated DeltaNet + Gated Attention |
 | **Qwen3.6-35B-A3B** | 35B | 3B | 72 GB | 38 GB | 23 GB | 72 GB (bf16) | 256K | 3:1 Gated DeltaNet + Gated Attention |
 | **Laguna XS 2.1** | 33B | 3B | 69 GB | 36 GB | 22 GB | 69 GB (bf16) | 128K | 3:1 sliding-window/global gated GQA |
 | **Sarvam 30B** | 30B | 2.4B | 63 GB | 34 GB | 21 GB | 63 GB (bf16) | 32K | GQA |
 | **Nemotron 3.5 Lightning 30B-A3B** | 30B | 3B | 63 GB | 33 GB | 20 GB | 63 GB (bf16) | 128K | Mamba-2 + GQA |
+| **Qwen3.8-27B** | 28B | 28B | 60 GB | 33 GB | 21 GB | 60 GB (bf16) | 256K | 3:1 Gated DeltaNet + Gated Attention |
 | **Qwen3.5-27B** | 27B | 27B | 57 GB | 30 GB | 19 GB | 57 GB (bf16) | 256K | Dense with Gated DeltaNet interleave |
 | **Gemma 4 26B-A4B** | 25B | 3.8B | 53 GB | 28 GB | 18 GB | 53 GB (bf16) | 128K | 5:1 sliding-window/global GQA |
 | **gpt-oss-20b** | 21B | 3.6B | 45 GB | 24 GB | 15 GB | 14 GB (mxfp4) | 128K | Alternating sliding-window/global GQA |
@@ -196,14 +199,14 @@ cache. At 262K context that is a 43 GB cache versus a 4 GB one.
 | **Kimi K2.5** | MLA | 34.3 KiB | 4.6 GB | 9.2 GB @ 256K | - | documented |
 | **DeepSeek V3.2** | MLA + DeepSeek Sparse Attention | 34.3 KiB | 4.6 GB | 5.8 GB @ 160K | - | config |
 | **DeepSeek-R1** | MLA | 34.3 KiB | 4.6 GB | 4.6 GB @ 128K | - | config |
+| **Qwen3.8-27B** | 3:1 Gated DeltaNet + Gated Attention | 32.0 KiB | 4.3 GB | 8.6 GB @ 256K | 0.2 GB | config |
 | **Mistral Small 4** | MLA | 31.5 KiB | 4.2 GB | 4.2 GB @ 128K | - | estimated |
 | **MiniMax M2.7 230B** | GQA | 31.0 KiB | 4.2 GB | 6.5 GB @ 200K | - | estimated |
-| **MiMo-V2.5-Pro** | GQA with 6:1 sliding-window/global attention | 25.0 KiB | 3.4 GB | 27 GB @ 1M | - | config |
+| **MiMo-V2.5-Pro** | GQA with 6:1 sliding-window/global attention | 25.0 KiB | 3.4 GB | 27 GB @ 1M | 79 MB | config |
 | **DeepSeek V4-Pro** | Compressed Sparse Attention + Heavily Compressed Attention | 24.2 KiB | 3.2 GB | 26 GB @ 1M | - | estimated |
 | **DeepSeek V4-Flash** | Compressed Sparse Attention + Heavily Compressed Attention | 24.2 KiB | 3.2 GB | 26 GB @ 1M | - | config |
 | **Sarvam 30B** | GQA | 24.0 KiB | n/a | 0.8 GB @ 32K | - | estimated |
 | **MiMo-V2.5 310B** | 5:1 sliding-window/global attention | 22.5 KiB | 3.0 GB | 24 GB @ 1M | - | config |
-| **gpt-oss-120b** | Alternating sliding-window/global GQA | 18.0 KiB | 2.4 GB | 2.4 GB @ 128K | - | config |
 
 (Truncated to the 24 most cache-hungry models; run `python llmram.py --model <id>` for any single model.)
 
@@ -230,7 +233,7 @@ fraction of nameplate memory.
 "Open source LLM" leaderboards routinely list models whose weights you cannot
 download. These are excluded here on purpose:
 
-- **Qwen3.8 Max** — Appears on several open-source leaderboards, but Artificial Analysis lists it as proprietary (weights not released). The open Qwen3.8 releases are the smaller checkpoints such as Qwen3.8-27B (Apache 2.0).
+- **Qwen3.5-Max / 3.6-Max / 3.7-Max** — API-only. Every Qwen Max generation before 3.8 stayed closed; Qwen3.8 broke that pattern, so the 2.4T-A95B checkpoint IS included above. Trackers that still list Qwen3.8 Max as proprietary are stale - the weights went up on ModelScope on 2026-08-12.
 - **Inkling (full)** — 975B/41B. Thinking Machines' own comparison table places Inkling in the closed-weights group; only Inkling-Small (276B/12B) is Apache 2.0.
 - **Gemini 3.1 Pro / Claude Opus 4.6 / GPT-5.6** — Closed weights. Included in some tables above only as reference points.
 
