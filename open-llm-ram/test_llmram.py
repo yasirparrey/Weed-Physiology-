@@ -166,11 +166,35 @@ def test_deepseek_v4_flash_decode_speed_matches_measured_on_m3_ultra():
 
 
 def test_kimi_k25_decode_speed_matches_community_reports_on_m3_ultra():
-    """Community reports: 8-15 tok/s at Q2, 10-21 tok/s at Q4 on a single 512GB unit."""
+    """Community reports: 8-15 tok/s at Q2, 10-21 tok/s at Q4 on a single 512GB unit.
+
+    The estimator sits at the optimistic end for the sub-4-bit builds because
+    those runs use llama.cpp rather than MLX and push the machine close to its
+    memory ceiling. Recorded here as a known bias rather than tuned away, since
+    correcting it for one model would break the MLX-measured calibrations.
+    """
     q3 = llmram.decode_tps(MODELS["kimi-k25"], "q3", llmram.GPUS["m3ultra"])
     int4 = llmram.decode_tps(MODELS["kimi-k25"], "int4", llmram.GPUS["m3ultra"])
     assert 8 <= q3 <= 25, q3
     assert 10 <= int4 <= 21, int4
+
+
+def test_kimi_k27_code_supersedes_k25_at_identical_cost():
+    """Same 1T/32B architecture, so identical memory and speed; K2.7 Code is newer."""
+    k25, k27 = MODELS["kimi-k25"], MODELS["kimi-k27-code"]
+    dev = llmram.GPUS["m3ultra"]
+    assert k25.total_params_b == k27.total_params_b
+    assert k25.active_params_b == k27.active_params_b
+    assert llmram.decode_tps(k25, "q3", dev) == llmram.decode_tps(k27, "q3", dev)
+    assert k27.scores["gpqa_diamond"] > k25.scores["gpqa_diamond"]
+
+
+def test_trillion_param_models_need_sub_4bit_on_a_512gb_mac():
+    """K2.x at 4-bit is 596 GB, over the 480 GB ceiling; 3-bit brings it to 380 GB."""
+    usable = llmram.usable_memory_gb(llmram.GPUS["m3ultra"])
+    m = MODELS["kimi-k25"]
+    assert estimate(m, 32768, "int4").total_gb > usable
+    assert estimate(m, 32768, "q3").total_gb <= usable
 
 
 def test_dense_7b_class_hits_reported_m3_ultra_speed():

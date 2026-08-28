@@ -272,6 +272,16 @@ models:
         source: documented
         growing:
           - {kind: mla, layers: 61, kv_lora_rank: 512, qk_rope_head_dim: 64}
+    notes: >
+      The best-measured reference point for a trillion-parameter model on a
+      512 GB Mac Studio, and a warning about this estimator's optimism at that
+      size. Community reports put the UD-Q2_K_XL (375 GB) build at 8-15 tok/s
+      and UD-TQ1_0 (240 GB) at 5-10 tok/s, where the bandwidth model predicts
+      20 and 32. Two reasons for the gap: those runs use llama.cpp GGUF, which
+      is slower than MLX on Metal, and at 375 GB of weights the machine is
+      near enough its ceiling that memory pressure costs real throughput.
+      Treat decode estimates above roughly 75% memory utilisation as ceilings,
+      not forecasts. Superseded for coding by K2.7 Code at identical cost.
 
   - id: ling-26-1t
     name: Ling 2.6 1T
