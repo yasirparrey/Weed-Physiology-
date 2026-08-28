@@ -113,14 +113,29 @@ GPUS = {
     "m3ultra": Device("Mac Studio M3 Ultra 512GB", 512, "unified", 819, 0.75, 32, 17),
 }
 
-# Decode is memory-bandwidth bound: each token reads every active weight once.
-# Measured efficiency against theoretical bandwidth splits sharply by model type,
-# because MoE decode does small gathered GEMMs over scattered experts while a
-# dense model streams contiguous weights.
-#   dense : ~127 tok/s reported for a 7B at Q4 on M3 Ultra -> ~61%
-#   MoE   : DeepSeek V4-Flash (13B active, MXFP4) measured 25 tok/s baseline and
-#           35-43 tok/s with MTP on M3 Ultra -> 21-36%
-BANDWIDTH_EFFICIENCY = {"dense": 0.62, "moe": 0.30}
+# Decode is memory-bandwidth bound: each token reads every active weight once,
+# plus the whole KV cache. Measured efficiency against peak bandwidth splits by
+# model type, because MoE decode does small gathered GEMMs over scattered
+# experts while a dense model streams contiguous weights.
+#
+#   dense : a 5-config campaign on M3 Ultra (Llama 405B at Q2/Q4/Q6, Qwen 32B at
+#           Q4/Q8) lands at 605-690 GB/s effective against an 819 GB/s peak.
+#   MoE   : far more variable and degrades with expert count. Mixtral (8 experts,
+#           top-2) reaches ~620 GB/s on active bytes, DeepSeek V3 (256 experts,
+#           top-8) only ~375 GB/s, and DeepSeek V4-Flash on MLX measures 25 tok/s
+#           baseline / 35-43 with MTP, which is ~235-300 GB/s. The frontier MoE
+#           models all sit in the many-expert regime, so 0.30 is the useful
+#           default; few-expert MoE will beat it.
+BANDWIDTH_EFFICIENCY = {"dense": 0.74, "moe": 0.30}
+
+# Multi-node scaling over Thunderbolt 5 RDMA, from measured M3 Ultra clusters.
+# Tensor parallelism all-reduces once per layer, so its efficiency falls off with
+# node count. Pipeline parallelism syncs once per node boundary and preserves
+# almost all single-node decode, but cannot rescue a model that does not fit.
+TP_EFFICIENCY = {1: 1.0, 2: 0.82, 3: 0.73, 4: 0.65}
+PP_DECODE_RETENTION = 0.94  # measured -4% on Qwen 32B, -10% on Mixtral
+PREFILL_SCALING_PER_NODE = 0.83  # TP4 measured +231% prompt throughput at 16K
+INTERCONNECT_GBS = 5.3  # sustained per TB5 link, AppleThunderboltRDMA
 # Engines cannot address 100% of a card. vLLM defaults to 0.90 and single-model
 # deployments commonly raise it; Moonshot's own K3 sizing guide uses 0.95.
 GPU_UTIL = 0.95
@@ -334,41 +349,65 @@ def gpus_needed(total_gb: float, gpu_key: str) -> tuple[int, str]:
     return n, dev.name
 
 
-def decode_tps(model: Model, precision: str, device: Device) -> float:
+def decode_tps(
+    model: Model,
+    precision: str,
+    device: Device,
+    context: int = 4096,
+    kv_precision: str = "fp8",
+    nodes: int = 1,
+) -> float:
     """Estimated single-stream decode speed in tokens/second.
 
-    Decode reads every active parameter once per token, so the ceiling is
-    bandwidth divided by the bytes those active parameters occupy. Total
-    parameters do not appear here at all - that is the whole reason a sparse
-    2.4T model can generate at a usable rate on hardware that can barely hold it.
+    Every token reads all active weights AND the whole KV cache accumulated so
+    far, so both belong in the denominator. Ignoring the cache badly overstates
+    long-context speed: a 32B model at Q4 is 19 GB of weights but 35 GB of cache
+    at 128K context, and measured throughput there falls to a quarter of its
+    short-context rate.
+
+    Total parameters never appear. That is why a sparse 2.4T model can generate
+    at a usable rate on hardware that can barely hold it.
     """
     if precision == "native":
         precision = model.native_precision
-    bytes_per_token = model.active_params_b * 1e9 * weight_bytes_per_param(precision)
-    ceiling = device.bandwidth_gbs * GB / bytes_per_token
-    return ceiling * BANDWIDTH_EFFICIENCY["dense" if model.is_dense else "moe"]
+    weight_bytes = model.active_params_b * 1e9 * weight_bytes_per_param(precision)
+    b = estimate(model, context, precision, kv_precision)
+    cache_bytes = (b.kv_gb + b.recurrent_gb) * GB
+
+    efficiency = BANDWIDTH_EFFICIENCY["dense" if model.is_dense else "moe"]
+    if nodes > 1:
+        # Pipeline parallelism when the model already fits on one node, tensor
+        # parallelism when the weights must be split to fit at all. Only TP
+        # divides the per-node read, which is why only TP can raise throughput.
+        if b.total_gb <= usable_memory_gb(device):
+            efficiency *= PP_DECODE_RETENTION
+        else:
+            efficiency *= nodes * TP_EFFICIENCY.get(nodes, 0.6)
+    return device.bandwidth_gbs * GB / (weight_bytes + cache_bytes) * efficiency
 
 
-def prefill_tps(model: Model, device: Device) -> float | None:
+def prefill_tps(model: Model, device: Device, nodes: int = 1) -> float | None:
     """Estimated prompt-processing rate in tokens/second.
 
     Prefill is compute-bound, not bandwidth-bound: it costs roughly 2 FLOPs per
     active parameter per token. This is where unified-memory hardware suffers,
-    and it is what sets time-to-first-token on a long prompt.
+    and it is what sets time-to-first-token on a long prompt. Unlike decode it
+    parallelises well, because prompt chunks are independent until the very end.
     """
     if device.prefill_tflops is None:
         return None
-    return device.prefill_tflops * 1e12 / (2 * model.active_params_b * 1e9)
+    scale = 1.0 if nodes == 1 else nodes * PREFILL_SCALING_PER_NODE
+    return device.prefill_tflops * 1e12 / (2 * model.active_params_b * 1e9) * scale
 
 
-def usable_memory_gb(device: Device, raised_cap: bool = True) -> float:
-    """Memory an inference engine can actually address on this device."""
+def usable_memory_gb(device: Device, raised_cap: bool = True, nodes: int = 1) -> float:
+    """Memory an inference engine can actually address across `nodes` machines."""
     if device.kind != "unified":
-        return device.memory_gb * GPU_UTIL
+        return device.memory_gb * GPU_UTIL * nodes
     if raised_cap:
         # Raise iogpu.wired_limit_mb and leave the OS its reserve.
-        return device.memory_gb - device.os_reserve_gb
-    return device.memory_gb * (device.default_cap_frac or 0.75)
+        return (device.memory_gb - device.os_reserve_gb) * nodes
+    return device.memory_gb * (device.default_cap_frac or 0.75) * nodes
 
 
 # ------------------------------------------------------------------------ printing
@@ -583,8 +622,9 @@ def print_detail(m: Model, args) -> None:
 def print_host_report(models: list[Model], args) -> None:
     """What one machine can actually run, ordered by capability."""
     dev = GPUS[args.host]
-    usable = usable_memory_gb(dev, raised_cap=True)
-    default = usable_memory_gb(dev, raised_cap=False)
+    n = args.nodes
+    usable = usable_memory_gb(dev, raised_cap=True, nodes=n)
+    default = usable_memory_gb(dev, raised_cap=False, nodes=n)
 
     print(f"{dev.name}")
     print("=" * len(dev.name))
@@ -606,7 +646,7 @@ def print_host_report(models: list[Model], args) -> None:
     for m in models:
         ctx, _ = effective_context(m, args.context)
         b = estimate(m, ctx, args.weights, args.kv, prefill_chunk=args.prefill_chunk)
-        row = (m, b, decode_tps(m, args.weights, dev))
+        row = (m, b, decode_tps(m, args.weights, dev, ctx, args.kv, n))
         (fits if b.total_gb <= usable else too_big).append(row)
 
     fits.sort(key=lambda r: -(headline_score(r[0]) or -1))
@@ -624,7 +664,7 @@ def print_host_report(models: list[Model], args) -> None:
     ]
     rows = []
     for m, b, tps in fits:
-        pp = prefill_tps(m, dev)
+        pp = prefill_tps(m, dev, n)
         rows.append(
             {
                 "model": m.name,
@@ -656,7 +696,7 @@ def print_host_report(models: list[Model], args) -> None:
                 if alt.total_gb <= usable:
                     rescue = (
                         f"  -> fits at {lower} ({fmt_gb(alt.total_gb)}, "
-                        f"{decode_tps(m, lower, dev):.0f} tok/s)"
+                        f"{decode_tps(m, lower, dev, args.context, args.kv, n):.0f} tok/s)"
                     )
                     break
             print(
@@ -691,14 +731,15 @@ def print_upgrade_report(models: list[Model], args) -> None:
     "what is best per unit of active parameter", and this ranks by that.
     """
     dev = GPUS[args.host] if args.host else GPUS[args.gpu]
-    usable = usable_memory_gb(dev)
+    n = args.nodes
+    usable = usable_memory_gb(dev, nodes=n)
     base = next((m for m in models if m.id == args.upgrade_from), None)
     if base is None:
         print(f"no model with id {args.upgrade_from!r}")
         return
 
-    base_pp = prefill_tps(base, dev)
-    base_tps = decode_tps(base, args.weights, dev)
+    base_pp = prefill_tps(base, dev, n)
+    base_tps = decode_tps(base, args.weights, dev, args.context, args.kv, n)
 
     print(f"Upgrades from {base.name} on {dev.name}")
     print("=" * 72)
@@ -722,13 +763,13 @@ def print_upgrade_report(models: list[Model], args) -> None:
         b = estimate(m, ctx, args.weights, args.kv, prefill_chunk=args.prefill_chunk)
         if b.total_gb > usable:
             continue
-        pp = prefill_tps(m, dev)
+        pp = prefill_tps(m, dev, n)
         rows.append(
             {
                 "model": m.name,
                 "size": f"{fmt_params(m.total_params_b)}/{fmt_params(m.active_params_b)}",
                 "ram": fmt_gb(b.total_gb),
-                "tps": f"{decode_tps(m, args.weights, dev):.0f}",
+                "tps": f"{decode_tps(m, args.weights, dev, ctx, args.kv, n):.0f}",
                 "slow": f"{base.active_params_b / m.active_params_b:.1f}x"
                 if m.active_params_b <= base.active_params_b
                 else f"{m.active_params_b / base.active_params_b:.1f}x slower",
@@ -828,6 +869,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="rank coding models that beat the one you already run, with the speed cost",
     )
     p.add_argument("--prefill-chunk", type=int, default=DEFAULT_PREFILL_CHUNK)
+    p.add_argument(
+        "--nodes",
+        type=int,
+        default=1,
+        help="number of identical machines clustered together (Thunderbolt 5 RDMA)",
+    )
     p.add_argument("--tier", help="filter by tier (frontier, strong, mid, small, legacy)")
     p.add_argument("--max-ram", type=float, help="only show models fitting in this many GB")
     p.add_argument("--sort", default="params", choices=["params", "ram", "score", "active"])

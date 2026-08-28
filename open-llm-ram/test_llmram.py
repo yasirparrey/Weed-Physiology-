@@ -197,10 +197,35 @@ def test_trillion_param_models_need_sub_4bit_on_a_512gb_mac():
     assert estimate(m, 32768, "q3").total_gb <= usable
 
 
-def test_dense_7b_class_hits_reported_m3_ultra_speed():
-    """Reported: ~127 tok/s for a 7B at Q4 on M3 Ultra; the 9B should be near it."""
-    tps = llmram.decode_tps(MODELS["qwen35-9b"], "int4", llmram.GPUS["m3ultra"])
-    assert 85 <= tps <= 115, tps
+def test_dense_effective_bandwidth_matches_measured_campaign():
+    """A 5-config M3 Ultra campaign (Llama 405B Q2/Q4/Q6, Qwen 32B Q4/Q8) lands at
+    605-690 GB/s effective against an 819 GB/s peak. Back out the implied
+    bandwidth from a dense model and check it sits in that window."""
+    dev = llmram.GPUS["m3ultra"]
+    m = MODELS["qwen35-27b"]
+    tps = llmram.decode_tps(m, "int4", dev, context=1024)
+    active_gb = m.active_params_b * llmram.WEIGHT_BYTES["int4"]
+    implied = tps * active_gb
+    assert 590 <= implied <= 700, implied
+
+
+def test_dense_32b_class_matches_measured_31_tps():
+    """Measured: Qwen 32B at Q4 generates 31.5 tok/s on one M3 Ultra at 1K context."""
+    dev = llmram.GPUS["m3ultra"]
+    tps = llmram.decode_tps(MODELS["qwen35-27b"], "int4", dev, context=1024)
+    # 27B vs the measured 32B, so scale the expectation by active bytes.
+    assert 30 <= tps * (27 / 32) <= 36, tps
+
+
+def test_long_context_degrades_decode_via_kv_cache():
+    """Finding 12: a 32B at Q4 drops 31.5 -> 24.1 -> 13.5 -> 8.5 tok/s from 1K to
+    128K, because the KV cache grows past the weights and is re-read every token.
+    Hy3 has a config-known GQA cache, so the effect must show up there."""
+    dev = llmram.GPUS["m3ultra"]
+    m = MODELS["hy3"]
+    short = llmram.decode_tps(m, "int4", dev, context=1024)
+    long = llmram.decode_tps(m, "int4", dev, context=262_144)
+    assert long < short / 1.2, (short, long)
 
 
 def test_prefill_scales_with_active_params_not_total():
@@ -243,6 +268,48 @@ def test_decode_speed_depends_on_active_not_total_params():
     sparse = llmram.decode_tps(MODELS["qwen35-397b"], "int4", dev)
     dense = llmram.decode_tps(MODELS["nemotron-ultra-253b"], "int4", dev)
     assert sparse > 5 * dense
+
+
+def test_two_node_cluster_doubles_capacity():
+    """Two 512 GB machines over Thunderbolt 5 address ~960 GB together."""
+    dev = llmram.GPUS["m3ultra"]
+    assert llmram.usable_memory_gb(dev, nodes=1) == pytest.approx(480)
+    assert llmram.usable_memory_gb(dev, nodes=2) == pytest.approx(960)
+
+
+def test_clustering_does_not_buy_decode_speed_for_a_model_that_fits():
+    """Measured: PP2 loses 4-10% of single-node decode, and TP2 loses 31-37%.
+    Adding a node to a model that already fits is a downgrade for generation."""
+    dev = llmram.GPUS["m3ultra"]
+    m = MODELS["ling-30-flash"]
+    one = llmram.decode_tps(m, "int4", dev, 32768, nodes=1)
+    two = llmram.decode_tps(m, "int4", dev, 32768, nodes=2)
+    assert two < one
+    assert two > 0.9 * one, "pipeline parallelism should retain most of it"
+
+
+def test_clustering_does_buy_prefill_speed():
+    """Measured: TP4 raised prompt throughput 231% at 16K context."""
+    dev = llmram.GPUS["m3ultra"]
+    m = MODELS["glm-53-flash"]
+    one = llmram.prefill_tps(m, dev, nodes=1)
+    two = llmram.prefill_tps(m, dev, nodes=2)
+    assert 1.5 <= two / one <= 1.8
+
+
+def test_two_nodes_unlock_the_trillion_param_tier_at_proper_4bit():
+    """Kimi K2.7 Code at 4-bit is 596 GB: over one node, comfortable on two."""
+    dev = llmram.GPUS["m3ultra"]
+    m = MODELS["kimi-k27-code"]
+    total = estimate(m, 32768, "int4").total_gb
+    assert total > llmram.usable_memory_gb(dev, nodes=1)
+    assert total < llmram.usable_memory_gb(dev, nodes=2)
+
+
+def test_kimi_k3_still_does_not_fit_two_nodes_at_4bit():
+    """2.8T at 4-bit is 1.66 TB against 960 GB of two-node capacity."""
+    dev = llmram.GPUS["m3ultra"]
+    assert estimate(MODELS["kimi-k3"], 32768, "int4").total_gb > llmram.usable_memory_gb(dev, nodes=2)
 
 
 def test_m3_ultra_512_addressable_memory():
