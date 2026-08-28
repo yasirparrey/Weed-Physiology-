@@ -87,13 +87,15 @@ call at 32,768 tokens of context, 4-bit weights, FP8 KV cache.
 | **Llama 4 Maverick** | Meta | 69.8 | 400B | 17B | 4.2% | 242 GB | 1x B300 | Llama 4 Community |
 | **Mistral Large 3** | Mistral AI | 43.9 | 673B | 41B | 6.1% | 403 GB \* | 4x H200 / 2x B300 | Apache 2.0 |
 
-### Ranked by MMLU-Pro
+### Ranked by SWE-bench V
 
-| Model | Vendor | MMLU-Pro | Total params | Active params | Active % | RAM / call | Fits on | License |
+| Model | Vendor | SWE-bench V | Total params | Active params | Active % | RAM / call | Fits on | License |
 |---|---|---|---|---|---|---|---|---|
-| **Qwen3.5-122B-A10B** | Alibaba (Qwen) | 86.7 | 122B | 10B | 8.2% | 75 GB | 1x A100 80GB | Apache 2.0 |
-| **Qwen3.5-27B** | Alibaba (Qwen) | 86.1 | 27B | 27B | 100.0% | 19 GB \* | 1x RTX 4090 | Apache 2.0 |
-| **Qwen3.5-35B-A3B** | Alibaba (Qwen) | 85.3 | 35B | 3B | 8.6% | 23 GB | 1x RTX 5090 | Apache 2.0 |
+| **Qwen3.5-27B** | Alibaba (Qwen) | 72.4 | 27B | 27B | 100.0% | 19 GB \* | 1x RTX 4090 | Apache 2.0 |
+| **Qwen3.5-122B-A10B** | Alibaba (Qwen) | 72 | 122B | 10B | 8.2% | 75 GB | 1x A100 80GB | Apache 2.0 |
+| **Qwen3.5-35B-A3B** | Alibaba (Qwen) | 69.2 | 35B | 3B | 8.6% | 23 GB | 1x RTX 5090 | Apache 2.0 |
+| **Qwen3-Coder-Next 80B-A3B** | Alibaba (Qwen) | 68 | 80B | 3B | 3.8% | 50 GB | 1x A100 80GB | Apache 2.0 |
+| **Qwen3-Coder-30B-A3B** | Alibaba (Qwen) | 51.6 | 30B | 3.3B | 10.8% | 21 GB | 1x RTX 4090 | Apache 2.0 |
 
 ### Ranked by AA Index
 
@@ -101,6 +103,7 @@ call at 32,768 tokens of context, 4-bit weights, FP8 KV cache.
 |---|---|---|---|---|---|---|---|---|
 | **Nemotron 3 Ultra 550B-A55B** | NVIDIA | 38 | 550B | 55B | 10.0% | 329 GB \* | 3x H200 / 2x B300 | OpenMDW-1.1 |
 | **MiniMax M2.7 230B** | MiniMax | 38 | 230B | 10B | 4.3% | 139 GB \* | 1x B200 | MIT |
+| **Ling 3.0 Flash** | InclusionAI / Ant Group | 38 | 124B | 5.1B | 4.1% | 76 GB \* | 1x A100 80GB | MIT |
 | **MiMo-V2.5 310B** | Xiaomi | 37 | 310B | 15B | 4.8% | 186 GB | 1x B300 | Permissive (MiMo) |
 | **Qwen3.5-9B** | Alibaba (Qwen) | 32 | 9B | 9B | 100.0% | 7.3 GB \* | 1x RTX 4090 | Apache 2.0 |
 | **Qwen3.5-4B** | Alibaba (Qwen) | 27 | 4B | 4B | 100.0% | 4.1 GB \* | 1x RTX 4090 | Apache 2.0 |
@@ -154,11 +157,13 @@ checkpoint where one is published, otherwise the model's shipped precision.
 | **Llama 4 Scout** | 109B | 17B | 224 GB | 117 GB | 71 GB | 224 GB (bf16) | 192K | GQA with iRoPE |
 | **GLM-4.5-Air** | 106B | 12B | 218 GB | 114 GB | 68 GB | 218 GB (bf16) | 128K | GQA |
 | **INTELLECT-3** | 106B | 12B | 216 GB | 112 GB | 67 GB | 216 GB (bf16) | 128K | GQA |
+| **Qwen3-Coder-Next 80B-A3B** | 80B | 3B | 162 GB | 84 GB | 50 GB | 162 GB (bf16) | 256K | 3:1 Gated DeltaNet + Gated Attention |
 | **Qwen3 Next 80B-A3B** | 80B | 3B | 162 GB | 84 GB | 50 GB | 162 GB (bf16) | 256K | 3:1 Gated DeltaNet + Gated Attention |
 | **LongCat-Flash-Lite 68.5B-A3B** | 68B | 3B | 140 GB | 73 GB | 44 GB | 140 GB (bf16) | 128K | MLA |
 | **Qwen3.5-35B-A3B** | 35B | 3B | 72 GB | 38 GB | 23 GB | 72 GB (bf16) | 256K | 3:1 Gated DeltaNet + Gated Attention |
 | **Qwen3.6-35B-A3B** | 35B | 3B | 72 GB | 38 GB | 23 GB | 72 GB (bf16) | 256K | 3:1 Gated DeltaNet + Gated Attention |
 | **Laguna XS 2.1** | 33B | 3B | 69 GB | 36 GB | 22 GB | 69 GB (bf16) | 128K | 3:1 sliding-window/global gated GQA |
+| **Qwen3-Coder-30B-A3B** | 30B | 3.3B | 64 GB | 35 GB | 21 GB | 64 GB (bf16) | 256K | GQA |
 | **Sarvam 30B** | 30B | 2.4B | 63 GB | 34 GB | 21 GB | 63 GB (bf16) | 32K | GQA |
 | **Nemotron 3.5 Lightning 30B-A3B** | 30B | 3B | 63 GB | 33 GB | 20 GB | 63 GB (bf16) | 128K | Mamba-2 + GQA |
 | **Qwen3.8-27B** | 28B | 28B | 60 GB | 33 GB | 21 GB | 60 GB (bf16) | 256K | 3:1 Gated DeltaNet + Gated Attention |
@@ -191,6 +196,7 @@ cache. At 262K context that is a 43 GB cache versus a 4 GB one.
 | **GLM-4.5-Air** | GQA | 92.0 KiB | 12 GB | 12 GB @ 128K | - | documented |
 | **Nemotron Ultra 253B** | GQA (dense transformer) | 81.0 KiB | 11 GB | 11 GB @ 128K | - | estimated |
 | **Mistral Large 3** | MLA | 49.5 KiB | 6.6 GB | 13 GB @ 256K | - | estimated |
+| **Qwen3-Coder-30B-A3B** | GQA | 48.0 KiB | 6.4 GB | 13 GB @ 256K | - | config |
 | **GLM-5.3** | MLA + DeepSeek Sparse Attention with IndexShare | 46.6 KiB | 6.3 GB | 50 GB @ 1M | - | config |
 | **GLM-5.2** | MLA + DeepSeek Sparse Attention with IndexShare | 46.6 KiB | 6.3 GB | 50 GB @ 1M | - | config |
 | **INTELLECT-3** | GQA | 46.0 KiB | 6.2 GB | 6.2 GB @ 128K | - | estimated |
@@ -206,7 +212,6 @@ cache. At 262K context that is a 43 GB cache versus a 4 GB one.
 | **DeepSeek V4-Pro** | Compressed Sparse Attention + Heavily Compressed Attention | 24.2 KiB | 3.2 GB | 26 GB @ 1M | - | estimated |
 | **DeepSeek V4-Flash** | Compressed Sparse Attention + Heavily Compressed Attention | 24.2 KiB | 3.2 GB | 26 GB @ 1M | - | config |
 | **Sarvam 30B** | GQA | 24.0 KiB | n/a | 0.8 GB @ 32K | - | estimated |
-| **MiMo-V2.5 310B** | 5:1 sliding-window/global attention | 22.5 KiB | 3.0 GB | 24 GB @ 1M | - | config |
 
 (Truncated to the 24 most cache-hungry models; run `python llmram.py --model <id>` for any single model.)
 
@@ -219,10 +224,10 @@ fraction of nameplate memory.
 | Budget | Usable | Largest that fits | Best-scoring that fits |
 |---|---|---|---|
 | Laptop / 8 GB GPU | 8 GB | Qwen3.5-9B (9B) | Qwen3.5-9B (32) |
-| RTX 4090 / 5090 (24-32 GB) | 23 GB | Qwen3.6-35B-A3B (35B) | Qwen3.5-27B (86.1) |
-| RTX 6000 Pro (96 GB) | 91 GB | Ling 3.0 Flash (124B) | Qwen3.5-122B-A10B (86.7) |
-| 1x H100 / A100 (80 GB) | 76 GB | Ling 3.0 Flash (124B) | Qwen3.5-122B-A10B (86.7) |
-| 1x H200 (141 GB) | 134 GB | Command A+ 218B-A25B (218B) | Qwen3.5-122B-A10B (86.7) |
+| RTX 4090 / 5090 (24-32 GB) | 23 GB | Qwen3.6-35B-A3B (35B) | Qwen3.5-27B (72.4) |
+| RTX 6000 Pro (96 GB) | 91 GB | Ling 3.0 Flash (124B) | gpt-oss-120b (80.1) |
+| 1x H100 / A100 (80 GB) | 76 GB | Ling 3.0 Flash (124B) | gpt-oss-120b (80.1) |
+| 1x H200 (141 GB) | 134 GB | Command A+ 218B-A25B (218B) | gpt-oss-120b (80.1) |
 | Mac Studio M3 Ultra (512 GB unified) | 486 GB | GLM-5.3 (753B) | MiniMax M3 (93) |
 | 8x H100 node (640 GB) | 608 GB | MiMo-V2.5-Pro (1.02T) | MiniMax M3 (93) |
 | 8x H200 node (1,128 GB) | 1072 GB | DeepSeek V4-Pro (1.60T) | MiniMax M3 (93) |
@@ -260,5 +265,5 @@ download. These are excluded here on purpose:
    about eighteen months. Regenerate rather than trust the timestamp.
 
 ---
-Generated 2026-08-27 from data as of 2026-08-27.
+Generated 2026-08-28 from data as of 2026-08-27.
 

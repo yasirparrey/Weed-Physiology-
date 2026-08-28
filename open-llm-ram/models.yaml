@@ -619,7 +619,8 @@ models:
     checkpoint_gb: 166.9
     modality: [text]
     tier: frontier
-    scores: {gpqa_diamond: 88.1, swe_bench_verified: 79.0, livecodebench: 91.6, aa_index: 40.0}
+    scores: {gpqa_diamond: 88.1, swe_bench_verified: 79.0, livecodebench: 91.6, aa_index: 40.0,
+             swe_bench_pro: 52.6, terminal_bench: 62.0, swe_bench_multilingual: 73.3}
     arch:
       attention: Compressed Sparse Attention + Heavily Compressed Attention
       layers: 43
@@ -706,7 +707,8 @@ models:
     native_precision: bf16
     modality: [text]
     tier: strong
-    scores: {aa_index: 38.0, swe_bench_verified: 79.9}
+    scores: {aa_index: 38.0, swe_bench_verified: 79.9, swe_bench_pro: 56.2,
+             terminal_bench: 55.0, livecodebench: 75.6}
     arch:
       attention: GQA
       layers: 62
@@ -745,6 +747,7 @@ models:
     native_precision: bf16
     modality: [text]
     tier: mid
+    scores: {swe_bench_pro: 56.3, terminal_bench: 39.3, livecodebench: 78.1}
     arch:
       attention: 3:1 sliding-window GQA
       kv:
@@ -810,7 +813,8 @@ models:
     native_precision: bf16
     modality: [text, image, video]
     tier: strong
-    scores: {mmlu_pro: 86.7, mmmu: 83.9}
+    scores: {mmlu_pro: 86.7, mmmu: 83.9, swe_bench_verified: 72.0, terminal_bench: 49.4,
+             livecodebench: 78.9}
     arch:
       attention: 3:1 Gated DeltaNet + Gated Attention
       layers: 48
@@ -859,11 +863,73 @@ models:
     native_precision: bf16
     modality: [text]
     tier: strong
+    scores: {swe_bench_pro: 56.6, terminal_bench: 57.0, livecodebench: 82.8,
+             swe_bench_multilingual: 72.4, artifactsbench: 77.0, aa_index: 38.0}
     arch:
       attention: 5:1 Kimi Delta Attention + gated MLA
+      experts: {total: 512, routed_per_token: 8, shared: 1}
       kv:
         source: estimated
         bytes_per_token_bf16: 8064
+    notes: >
+      The best capability-per-active-parameter model in the database. At 5.1B
+      active it beats DeepSeek V4-Flash (13B active) on SWE-Bench Pro, 56.6 to
+      52.6, and MiniMax M2.7 and Step 3.5 Flash on the same benchmark, while
+      costing roughly a third of the prefill compute. Benchmarks are
+      vendor-reported and have no third-party confirmation yet.
+
+  - id: qwen3-coder-30b-a3b
+    name: Qwen3-Coder-30B-A3B
+    vendor: Alibaba (Qwen)
+    released: 2025-07-31
+    license: Apache 2.0
+    total_params_b: 30.5
+    active_params_b: 3.3
+    context_native: 262144
+    native_precision: bf16
+    modality: [text]
+    tier: legacy
+    scores: {swe_bench_verified: 51.6}
+    arch:
+      attention: GQA
+      layers: 48
+      hidden_size: 2048
+      experts: {total: 128, routed_per_token: 8, shared: 0}
+      kv:
+        source: config
+        growing:
+          - {kind: gqa, layers: 48, kv_heads: 4, k_head_dim: 128, v_head_dim: 128}
+    notes: >
+      The 2025 local-coding default and the baseline most people are trying to
+      beat. Fast because only 3.3B activate, but a generation behind on quality.
+
+  - id: qwen3-coder-next
+    name: Qwen3-Coder-Next 80B-A3B
+    vendor: Alibaba (Qwen)
+    released: 2025-12-01
+    license: Apache 2.0
+    total_params_b: 80
+    active_params_b: 3
+    context_native: 262144
+    context_extended: 1010000
+    native_precision: bf16
+    modality: [text]
+    tier: strong
+    scores: {swe_bench_verified: 68.0}
+    arch:
+      attention: 3:1 Gated DeltaNet + Gated Attention
+      layers: 48
+      hidden_size: 2048
+      kv:
+        source: config
+        growing:
+          - {kind: gqa, layers: 12, kv_heads: 2, k_head_dim: 256, v_head_dim: 256}
+        recurrent:
+          - {kind: linear_attn, layers: 36, heads: 32, head_k_dim: 128, head_v_dim: 128}
+    notes: >
+      Built on Qwen3-Next-80B-A3B and agentically trained for coding agents on
+      executable task synthesis, environment interaction and RL. Same 3B active
+      as Qwen3-Coder-30B-A3B, so identical speed, but 2.6x the total parameters.
 
   - id: nemotron-3-super
     name: Nemotron 3 Super 120B-A12B
@@ -876,6 +942,7 @@ models:
     native_precision: bf16
     modality: [text]
     tier: mid
+    scores: {swe_bench_pro: 34.1, terminal_bench: 39.0, livecodebench: 78.7}
     arch:
       attention: Mamba-2 + GQA
       kv:
@@ -1040,7 +1107,8 @@ models:
     native_precision: bf16
     modality: [text, image, video]
     tier: mid
-    scores: {mmlu_pro: 85.3, mmmu: 81.4}
+    scores: {mmlu_pro: 85.3, mmmu: 81.4, swe_bench_verified: 69.2, terminal_bench: 40.5,
+             livecodebench: 74.6}
     arch:
       attention: 3:1 Gated DeltaNet + Gated Attention
       layers: 40
@@ -1084,7 +1152,8 @@ models:
     native_precision: bf16
     modality: [text, image, video]
     tier: mid
-    scores: {mmlu_pro: 86.1, mmmu: 82.3}
+    scores: {mmlu_pro: 86.1, mmmu: 82.3, swe_bench_verified: 72.4, terminal_bench: 41.6,
+             livecodebench: 80.7}
     arch:
       attention: Dense with Gated DeltaNet interleave
       layers: 64

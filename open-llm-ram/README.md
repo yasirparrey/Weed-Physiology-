@@ -41,6 +41,9 @@ python llmram.py --gpu rtx4090 --max-ram 22 --context 8192
 python llmram.py --host m3ultra --context 32768
 python llmram.py --host dgxspark
 
+# I run X and want better without losing speed - what should I switch to?
+python llmram.py --upgrade-from qwen3-coder-30b-a3b --host m3ultra
+
 # long-context serving on an 8x H200 node
 python llmram.py --context 1000000 --weights fp8 --gpu h200
 
@@ -75,6 +78,13 @@ theoretical bandwidth) because MoE decode does small gathered GEMMs over
 scattered experts. Both figures are calibrated against measured Apple Silicon
 benchmarks, not assumed.
 
+The practical consequence, which `--upgrade-from` ranks directly: when memory is
+abundant and bandwidth is scarce, **total parameters are nearly free and active
+parameters are what you pay for**. Ling 3.0 Flash (124B/5.1B) beats DeepSeek
+V4-Flash (284B/13B) on SWE-bench Pro while reading prompts 2.5× faster, and
+Qwen3-Coder-Next (80B/3B) is a strictly free upgrade over Qwen3-Coder-30B-A3B
+(30B/3.3B) — more than twice the total parameters at identical speed.
+
 ## What "RAM for one call" includes
 
 Concurrency of 1 — a single request, start to finish:
@@ -103,7 +113,7 @@ size**. Three examples from the database:
 It is calibrated against published measurements, and those checks run as tests:
 
 ```bash
-python -m pytest test_llmram.py -q     # 33 passed
+python -m pytest test_llmram.py -q     # 37 passed
 ```
 
 It reproduces, without per-model fudge factors:

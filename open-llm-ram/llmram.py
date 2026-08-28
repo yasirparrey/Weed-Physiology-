@@ -675,6 +675,96 @@ def print_host_report(models: list[Model], args) -> None:
     )
 
 
+CODING_BENCHMARKS = [
+    ("swe_bench_pro", "SWEbPro"),
+    ("swe_bench_verified", "SWEbVer"),
+    ("terminal_bench", "TermB"),
+    ("livecodebench", "LCB"),
+]
+
+
+def print_upgrade_report(models: list[Model], args) -> None:
+    """Given a model you already run, what is better and what does it cost in speed.
+
+    On a memory-rich, bandwidth-poor machine the binding constraint is active
+    parameters, not total. So the useful question is not "what is best" but
+    "what is best per unit of active parameter", and this ranks by that.
+    """
+    dev = GPUS[args.host] if args.host else GPUS[args.gpu]
+    usable = usable_memory_gb(dev)
+    base = next((m for m in models if m.id == args.upgrade_from), None)
+    if base is None:
+        print(f"no model with id {args.upgrade_from!r}")
+        return
+
+    base_pp = prefill_tps(base, dev)
+    base_tps = decode_tps(base, args.weights, dev)
+
+    print(f"Upgrades from {base.name} on {dev.name}")
+    print("=" * 72)
+    print(
+        f"  baseline: {fmt_params(base.total_params_b)} total / "
+        f"{fmt_params(base.active_params_b)} active, "
+        f"{base_tps:.0f} tok/s decode"
+        + (f", {args.context / base_pp:.0f}s to read {fmt_ctx(args.context)}" if base_pp else "")
+    )
+    print(
+        "  Speed tracks ACTIVE parameters only, so a model with more total\n"
+        "  parameters at the same activation is free quality."
+    )
+    print()
+
+    rows = []
+    for m in models:
+        if m.id == base.id or not any(k in m.scores for k, _ in CODING_BENCHMARKS):
+            continue
+        ctx, _ = effective_context(m, args.context)
+        b = estimate(m, ctx, args.weights, args.kv, prefill_chunk=args.prefill_chunk)
+        if b.total_gb > usable:
+            continue
+        pp = prefill_tps(m, dev)
+        rows.append(
+            {
+                "model": m.name,
+                "size": f"{fmt_params(m.total_params_b)}/{fmt_params(m.active_params_b)}",
+                "ram": fmt_gb(b.total_gb),
+                "tps": f"{decode_tps(m, args.weights, dev):.0f}",
+                "slow": f"{base.active_params_b / m.active_params_b:.1f}x"
+                if m.active_params_b <= base.active_params_b
+                else f"{m.active_params_b / base.active_params_b:.1f}x slower",
+                "ttft": fmt_duration(args.context / pp) if pp else "-",
+                **{
+                    label: (f"{m.scores[key]:g}" if key in m.scores else "-")
+                    for key, label in CODING_BENCHMARKS
+                },
+                "_rank": max(
+                    m.scores.get("swe_bench_pro", 0) * 1.25,
+                    m.scores.get("terminal_bench", 0),
+                    m.scores.get("swe_bench_verified", 0) * 0.8,
+                ),
+            }
+        )
+
+    rows.sort(key=lambda r: -r["_rank"])
+    headers = (
+        [("model", "Model"), ("size", "Total/Active"), ("ram", "RAM")]
+        + [(label, label) for _, label in CODING_BENCHMARKS]
+        + [("tps", "tok/s"), ("ttft", f"read {fmt_ctx(args.context)}"), ("slow", "vs base")]
+    )
+    widths = {k: max(len(h), max((len(r[k]) for r in rows), default=0)) for k, h in headers}
+    print("  " + "  ".join(h.ljust(widths[k]) for k, h in headers))
+    print("  " + "  ".join("-" * widths[k] for k, _ in headers))
+    for r in rows:
+        print("  " + "  ".join(r[k].ljust(widths[k]) for k, _ in headers))
+    print()
+    print(
+        "  Coding benchmarks are not interchangeable and most are vendor-reported;\n"
+        "  ordering blends SWE-bench Pro, Terminal-Bench and SWE-bench Verified and\n"
+        "  is a rough guide, not a ranking. 'vs base' compares active parameters,\n"
+        "  which is what sets prompt-processing time."
+    )
+
+
 def fmt_duration(seconds: float) -> str:
     if seconds < 60:
         return f"{seconds:.0f}s"
@@ -732,6 +822,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=list(GPUS),
         help="report everything one machine can run, with decode speed estimates",
     )
+    p.add_argument(
+        "--upgrade-from",
+        metavar="MODEL_ID",
+        help="rank coding models that beat the one you already run, with the speed cost",
+    )
     p.add_argument("--prefill-chunk", type=int, default=DEFAULT_PREFILL_CHUNK)
     p.add_argument("--tier", help="filter by tier (frontier, strong, mid, small, legacy)")
     p.add_argument("--max-ram", type=float, help="only show models fitting in this many GB")
@@ -765,6 +860,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.tier:
         models = [m for m in models if m.tier == args.tier]
+
+    if args.upgrade_from:
+        print_upgrade_report(models, args)
+        return 0
 
     if args.host:
         print_host_report(models, args)

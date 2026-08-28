@@ -179,6 +179,40 @@ def test_dense_7b_class_hits_reported_m3_ultra_speed():
     assert 85 <= tps <= 115, tps
 
 
+def test_prefill_scales_with_active_params_not_total():
+    """Prompt processing is ~2 FLOPs per active parameter per token."""
+    dev = llmram.GPUS["m3ultra"]
+    base = llmram.prefill_tps(MODELS["qwen3-coder-30b-a3b"], dev)
+    v4 = llmram.prefill_tps(MODELS["deepseek-v4-flash"], dev)
+    # 13B active vs 3.3B active, so V4-Flash reads prompts about 4x slower.
+    assert base / v4 == pytest.approx(13 / 3.3, rel=0.05)
+
+
+def test_deepseek_v4_flash_prefill_matches_measured_on_m3_ultra():
+    """Measured 542-630 tok/s prompt processing on M3 Ultra 512GB."""
+    pp = llmram.prefill_tps(MODELS["deepseek-v4-flash"], llmram.GPUS["m3ultra"])
+    assert 500 <= pp <= 700, pp
+
+
+def test_ling_flash_beats_v4_flash_on_swe_bench_pro_at_a_third_the_cost():
+    """The capability-per-active-parameter case: 56.6 vs 52.6 at 5.1B vs 13B active."""
+    ling, v4 = MODELS["ling-30-flash"], MODELS["deepseek-v4-flash"]
+    assert ling.scores["swe_bench_pro"] > v4.scores["swe_bench_pro"]
+    assert ling.active_params_b < v4.active_params_b / 2
+    dev = llmram.GPUS["m3ultra"]
+    assert llmram.prefill_tps(ling, dev) > 2 * llmram.prefill_tps(v4, dev)
+
+
+def test_qwen3_coder_next_is_a_free_upgrade():
+    """Same active parameters as Qwen3-Coder-30B-A3B, 2.6x the total, so same speed."""
+    old, new = MODELS["qwen3-coder-30b-a3b"], MODELS["qwen3-coder-next"]
+    dev = llmram.GPUS["m3ultra"]
+    assert new.total_params_b > 2.5 * old.total_params_b
+    assert new.scores["swe_bench_verified"] > old.scores["swe_bench_verified"]
+    assert llmram.prefill_tps(new, dev) >= llmram.prefill_tps(old, dev)
+    assert llmram.decode_tps(new, "int4", dev) >= llmram.decode_tps(old, "int4", dev)
+
+
 def test_decode_speed_depends_on_active_not_total_params():
     """A 397B sparse model must decode faster than a 253B dense one."""
     dev = llmram.GPUS["m3ultra"]
