@@ -56,7 +56,8 @@ models:
     checkpoint_gb: 1560.9
     modality: [text, image]
     tier: frontier
-    scores: {gpqa_diamond: 93.5, swe_bench_verified: 76.8, aime_2025: 96.1, hle: 43.5}
+    scores: {gpqa_diamond: 93.5, swe_bench_verified: 76.8, aime_2025: 96.1, hle: 43.5,
+             aa_index: 57.1}
     arch:
       attention: 3:1 Kimi Delta Attention + gated MLA
       layers: 93
@@ -159,7 +160,8 @@ models:
     native_precision: fp4_fp8_mixed
     modality: [text]
     tier: frontier
-    scores: {gpqa_diamond: 90.1, swe_bench_verified: 80.6, livecodebench: 93.5, hle: 48.2}
+    scores: {gpqa_diamond: 90.1, swe_bench_verified: 80.6, livecodebench: 93.5, hle: 48.2,
+             aa_index: 44.3}
     arch:
       attention: Compressed Sparse Attention + Heavily Compressed Attention
       layers: 43
@@ -326,7 +328,8 @@ models:
     native_precision: fp8
     modality: [text]
     tier: frontier
-    scores: {gpqa_diamond: 91.2, swe_bench_pro: 62.1, terminal_bench: 81.0, hle: 54.7}
+    scores: {gpqa_diamond: 91.2, swe_bench_pro: 62.1, terminal_bench: 81.0, hle: 54.7,
+             aa_index: 51.1}
     arch:
       attention: MLA + DeepSeek Sparse Attention with IndexShare
       layers: 78
@@ -443,7 +446,7 @@ models:
     native_precision: bf16
     modality: [text, image, video]
     tier: frontier
-    scores: {gpqa_diamond: 93.0, swe_bench_verified: 80.5, hle: 51.6}
+    scores: {gpqa_diamond: 93.0, swe_bench_verified: 80.5, hle: 51.6, aa_index: 44.4}
     arch:
       attention: GQA with MiniMax Sparse Attention
       layers: 61
