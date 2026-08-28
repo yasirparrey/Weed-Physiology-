@@ -306,6 +306,26 @@ def test_two_nodes_unlock_the_trillion_param_tier_at_proper_4bit():
     assert total < llmram.usable_memory_gb(dev, nodes=2)
 
 
+def test_qwen38_max_does_not_fit_one_mac_at_any_real_quant():
+    """2.4T needs 1.60 bits/param to fit 480 GB. The smallest real GGUF build,
+    UD-TQ1_0, is 1.90 bits and still lands 95 GB over."""
+    usable = llmram.usable_memory_gb(llmram.GPUS["m3ultra"])
+    m = MODELS["qwen38-max"]
+    for quant in ("bf16", "fp8", "int4", "q3", "q2"):
+        assert estimate(m, 32768, quant).total_gb > usable, quant
+    required_bits = usable * 1e9 / m.total_params * 8
+    assert required_bits < llmram.WEIGHT_BYTES["q2"] * 8
+
+
+def test_qwen38_max_would_be_unusably_slow_even_if_it_fit():
+    """95B active is the second-highest of any open model, so even given the
+    memory it would generate at single digits and take minutes per prompt."""
+    dev = llmram.GPUS["m3ultra"]
+    m = MODELS["qwen38-max"]
+    assert llmram.decode_tps(m, "int4", dev, 32768) < 6
+    assert 32768 / llmram.prefill_tps(m, dev) > 300  # over five minutes
+
+
 def test_kimi_k3_still_does_not_fit_two_nodes_at_4bit():
     """2.8T at 4-bit is 1.66 TB against 960 GB of two-node capacity."""
     dev = llmram.GPUS["m3ultra"]
