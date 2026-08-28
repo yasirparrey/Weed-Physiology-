@@ -209,17 +209,23 @@ models:
     active_params_b: 32
     context_native: 262144
     native_precision: fp8
-    modality: [text]
+    modality: [text, image]
     tier: frontier
+    scores: {aa_index: 41.9, gpqa_diamond: 89.6, mcp_atlas: 76.0, mcp_mark_verified: 81.1}
     arch:
       attention: MLA
       layers: 61
       hidden_size: 7168
       experts: {total: 384, routed_per_token: 8, shared: 1}
       kv:
-        source: documented
+        source: config
         growing:
           - {kind: mla, layers: 61, kv_lora_rank: 512, qk_rope_head_dim: 64}
+    notes: >
+      Coding-specialised build on K2.6, and the only dedicated coding model at
+      this scale with open weights. Kimi Code Bench v2 62.0 (vs K2.6's 50.9),
+      MCP Atlas 76.0%, MCP Mark Verified 81.1%. Uses ~30% fewer thinking tokens
+      than K2.6. Includes the 400M MoonViT vision encoder.
 
   - id: kimi-k26
     name: Kimi K2.6
@@ -529,16 +535,27 @@ models:
     license: MIT
     total_params_b: 320
     active_params_b: 18
-    context_native: 262144
+    context_native: 1048576
     native_precision: fp8
-    modality: [text]
-    tier: strong
+    modality: [text, image]
+    tier: frontier
+    scores: {aa_index: 57.0, deepswe: 63.4, automationbench: 48.8}
     arch:
       attention: 3:1 Kimi Delta Attention + MLA/DSA
       kv:
         source: estimated
         bytes_per_token_bf16: 11520
         note: Assumes 1-in-4 MLA layers at rank 512+64 over ~40 layers.
+    notes: >
+      The best capability-per-active-parameter model here by a wide margin. It
+      ran anonymously on OpenRouter and OpenCode as "Ox Alpha" for weeks and
+      topped call-volume rankings on both before Z.ai confirmed it. Scores 57 on
+      the Artificial Analysis Intelligence Index at 18B active, against GLM-5.2's
+      51.1 at 40B active and Claude Opus 4.8's 55.7. Jumps over GLM-5.2 on
+      DeepSWE (63.4 vs 46.2) and AutomationBench (48.8 vs 26.2). First natively
+      multimodal model in the GLM-5 line, MIT licensed. The Z.ai Code Bench
+      comparison to Opus 4.8 is vendor-run and should be treated with caution;
+      the AA index score is third-party.
 
   - id: motif-3-beta
     name: Motif 3 Beta
@@ -977,7 +994,8 @@ models:
     native_precision: mxfp4
     modality: [text]
     tier: mid
-    scores: {mmlu_pro: 80.8, gpqa_diamond: 80.1}
+    scores: {mmlu_pro: 80.8, gpqa_diamond: 80.1, swe_bench_verified: 62.4,
+             aider_polyglot: 44.4, aa_index: 23.8}
     arch:
       attention: Alternating sliding-window/global GQA
       layers: 36

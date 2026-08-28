@@ -76,6 +76,7 @@ call at 32,768 tokens of context, 4-bit weights, FP8 KV cache.
 | **Kimi K2.6** | Moonshot AI | 90.5 | 1T | 32B | 3.2% | 596 GB | 5x H200 / 3x B300 | Modified MIT |
 | **Hy3 295B-A21B** | Tencent Hunyuan | 90.4 | 295B | 21B | 7.1% | 182 GB | 1x MI300X | Tencent Hunyuan Community |
 | **DeepSeek V4-Pro** | DeepSeek | 90.1 | 1.60T | 49B | 3.1% | 948 GB \* | 8x H200 / 4x B300 | MIT |
+| **Kimi K2.7 Code** | Moonshot AI | 89.6 | 1T | 32B | 3.2% | 596 GB | 5x H200 / 3x B300 | Modified MIT |
 | **Inkling-Small** | Thinking Machines Lab | 89.5 | 276B | 12B | 4.3% | 166 GB \* | 1x B200 | Apache 2.0 |
 | **Qwen3.5-397B-A17B** | Alibaba (Qwen) | 88.4 | 397B | 17B | 4.3% | 238 GB | 1x B300 | Apache 2.0 |
 | **DeepSeek V4-Flash** | DeepSeek | 88.1 | 284B | 13B | 4.6% | 171 GB | 1x MI300X | MIT |
@@ -101,6 +102,7 @@ call at 32,768 tokens of context, 4-bit weights, FP8 KV cache.
 
 | Model | Vendor | AA Index | Total params | Active params | Active % | RAM / call | Fits on | License |
 |---|---|---|---|---|---|---|---|---|
+| **GLM-5.3-Flash** | Z.ai (Zhipu AI) | 57 | 320B | 18B | 5.6% | 192 GB \* | 1x B300 | MIT |
 | **Nemotron 3 Ultra 550B-A55B** | NVIDIA | 38 | 550B | 55B | 10.0% | 329 GB \* | 3x H200 / 2x B300 | OpenMDW-1.1 |
 | **MiniMax M2.7 230B** | MiniMax | 38 | 230B | 10B | 4.3% | 139 GB \* | 1x B200 | MIT |
 | **Ling 3.0 Flash** | InclusionAI / Ant Group | 38 | 124B | 5.1B | 4.1% | 76 GB \* | 1x A100 80GB | MIT |
@@ -136,7 +138,7 @@ checkpoint where one is published, otherwise the model's shipped precision.
 | **Arcee Trinity Large 400B** | 400B | 13B | 803 GB | 411 GB | 239 GB | 803 GB (bf16) | 128K | 3:1 sliding-window/global gated GQA |
 | **Qwen3.5-397B-A17B** | 397B | 17B | 797 GB | 408 GB | 238 GB | 797 GB (bf16) | 256K | 3:1 Gated DeltaNet + Gated Attention |
 | **GLM-4.7 355B** | 355B | 32B | 719 GB | 371 GB | 219 GB | 719 GB (bf16) | 200K | GQA |
-| **GLM-5.3-Flash** | 320B | 18B | 643 GB | 329 GB | 192 GB | 329 GB (fp8) | 256K | 3:1 Kimi Delta Attention + MLA/DSA |
+| **GLM-5.3-Flash** | 320B | 18B | 643 GB | 329 GB | 192 GB | 329 GB (fp8) | 1M | 3:1 Kimi Delta Attention + MLA/DSA |
 | **Motif 3 Beta** | 314B | 13B | 631 GB | 323 GB | 188 GB | 631 GB (bf16) | 128K | GDLA with 3:1 sliding-window/full attention |
 | **MiMo-V2.5 310B** | 310B | 15B | 623 GB | 320 GB | 186 GB | 320 GB (fp8) | 1M | 5:1 sliding-window/global attention |
 | **Hy3 295B-A21B** | 295B | 21B | 598 GB | 309 GB | 182 GB | 598 GB (bf16) | 256K | GQA |
@@ -200,7 +202,7 @@ cache. At 262K context that is a 43 GB cache versus a 4 GB one.
 | **GLM-5.3** | MLA + DeepSeek Sparse Attention with IndexShare | 46.6 KiB | 6.3 GB | 50 GB @ 1M | - | config |
 | **GLM-5.2** | MLA + DeepSeek Sparse Attention with IndexShare | 46.6 KiB | 6.3 GB | 50 GB @ 1M | - | config |
 | **INTELLECT-3** | GQA | 46.0 KiB | 6.2 GB | 6.2 GB @ 128K | - | estimated |
-| **Kimi K2.7 Code** | MLA | 34.3 KiB | 4.6 GB | 9.2 GB @ 256K | - | documented |
+| **Kimi K2.7 Code** | MLA | 34.3 KiB | 4.6 GB | 9.2 GB @ 256K | - | config |
 | **Kimi K2.6** | MLA | 34.3 KiB | 4.6 GB | 9.2 GB @ 256K | - | config |
 | **Kimi K2.5** | MLA | 34.3 KiB | 4.6 GB | 9.2 GB @ 256K | - | documented |
 | **DeepSeek V3.2** | MLA + DeepSeek Sparse Attention | 34.3 KiB | 4.6 GB | 5.8 GB @ 160K | - | config |
