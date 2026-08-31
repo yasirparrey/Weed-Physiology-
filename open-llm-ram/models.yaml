@@ -149,6 +149,18 @@ models:
       FP8 or BF16 cache every serving stack actually uses, the same call costs
       3.1 GB or 6.3 GB.
 
+      Chosen by NVIDIA and Perplexity as the launch model for Portable Computer
+      (2026-08-25), shipped at 3-bit as a 17.4 GB download. That release is the
+      best public evidence that harness design rivals model choice: on
+      Perplexity's 53-task Local Knowledge Work Bench the same Qwen3.8-27B
+      scores 82.6% in their purpose-built harness, 77.6% in the open-source Pi
+      harness and 74.0% in Hermes. Their post-trained PPLX 27B variant reaches
+      85.4% but is not distributed. Perplexity also reports that the advertised
+      262K context degrades in practice past roughly 100K tokens, and measures
+      Terminal-Bench 2.1 at 59.6% fully local, rising to 73.0% when hard steps
+      escalate to a cloud model, against 82.4% for Claude Opus 5 alone. All of
+      those figures are vendor-run.
+
   - id: deepseek-v4-pro
     name: DeepSeek V4-Pro
     vendor: DeepSeek
