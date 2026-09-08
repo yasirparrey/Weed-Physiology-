@@ -1,26 +1,28 @@
-# Realistic ML labs (U.S. News CS ~10–50)
+# ML labs (U.S. News CS ranks 1–50)
 
-This file is **only** schools from the earlier list that sit around **U.S. News 2026 graduate CS ranks 10–50**.
-
-**Left out on purpose**
-
-- Ranks **1–9** (CMU, MIT, Stanford, Berkeley, Illinois, Princeton, Cornell, Georgia Tech, Washington). Those are the “top-notch” labs you said you do not want for summer.
-- Schools **below ~50** (UCR, UTD, UIC, GMU, UMBC, UC Merced, Santa Clara). Add them later if you want a safer backup list.
+U.S. News **2026 graduate CS** ranks. Ties use the shared number.
 
 **What is in here**
 
-- **ML labs** (vision, NLP, robustness, generative models, RL, optimization-for-DL, trustworthy AI).
-- **Not** COLT-only theory groups.
-- Faculty pages + lab or group pages where they exist.
-- A **realism** tag for a **beginner summer visitor** (not a PhD admit).
+- **ML labs** (vision, NLP, LLMs, robustness, generative models, RL, graph ML, ML systems).
+- **Not** COLT-only theory groups (those names are omitted on purpose).
+- Faculty / lab links + a summer program when one exists.
 
-Ranks are U.S. News 2026 CS graduate. Ties are written as the shared number.
+**How to treat the groups**
+
+- **Group T (ranks 1–9):** include for **PhD applications**. For summer, use **named programs only** (CURIS, SUPERB, MSRP, HCII REU). Do not cold-email Fei-Fei, Abbeel, Kaiming He, etc. as a beginner.
+- **Group A (10–21):** still selective; summer via SURF/SURE-style programs.
+- **Groups B–C (25–51):** better odds for a first visiting / REU summer.
+
+**Left out:** schools **below ~50** (UCR, UTD, UIC, GMU, UMBC, UC Merced, Santa Clara). Caltech / Harvard / Yale are in a short note at the end (ranked 12–21 but tiny/elite).
+
+UT Austin is **#10**, so it sits in Group A, not Group T.
 
 ---
 
 ## How to use this
 
-1. Pick **8–12 labs** in Group B or C first. Group A is still competitive.
+1. For a **first summer**, pick **8–12 labs in Group B or C**. Use Group T for **PhD** (and only structured summer programs). Group A is still competitive.
 2. Read **two recent papers** from the lab (ICML / ICLR / NeurIPS / CVPR / ACL).
 3. Email the PI **once**, Dec–January for summer, subject: `Summer visiting student — [topic] — [your school]`.
 4. Apply to **structured programs** in parallel (REU / SURF / UROP). Those beat cold email.
@@ -32,9 +34,121 @@ Ranks are U.S. News 2026 CS graduate. Ties are written as the shared number.
 
 ---
 
+## Group T — ranks 1–9 (top 10 band; PhD-first)
+
+These are the schools that were missing from the earlier file. They are **real ML labs**, not theory-only. Summer as an outsider almost always means a **named undergrad program**, not a PI internship.
+
+### Carnegie Mellon (#1) — Pittsburgh
+
+- School of Computer Science: [cs.cmu.edu](https://www.cs.cmu.edu/)
+- Machine Learning Department: [ml.cmu.edu](https://www.ml.cmu.edu/)
+- **Ruslan Salakhutdinov** — deep learning / generative models. [Homepage](https://www.cs.cmu.edu/~rsalakhu/)
+- **Zico Kolter** — deep learning / robust ML / ML+optimization. [Homepage](https://zicokolter.com/)
+- **Graham Neubig** — NLP / LLMs. [Homepage](https://www.phontron.com/) · [NeuLab](https://www.cs.cmu.edu/~neulab/)
+- **Louis-Philippe Morency** — multimodal ML. [MultiComp](https://multicomp.cs.cmu.edu/)
+- **Virginia Smith** — federated / distributed ML. [Homepage](https://www.cs.cmu.edu/~ksmith/)
+- **Ameet Talwalkar** — AutoML / efficient ML. [Homepage](https://www.cs.cmu.edu/~atalwalk/)
+- **Zachary Lipton** — reliable ML. [Homepage](https://www.cs.cmu.edu/~zlipton/)
+- **Yonatan Bisk** — language grounding. [Homepage](https://yonatanbisk.com/)
+- Summer: [HCII REU](https://www.hcii.cmu.edu/summer-research-program) · [MLD](https://www.ml.cmu.edu/) does not run an open “email Russ” intern pipeline.
+
+### MIT (#1) — Cambridge / Boston
+
+- EECS: [eecs.mit.edu](https://www.eecs.mit.edu/) · CSAIL: [csail.mit.edu](https://www.csail.mit.edu/)
+- **Kaiming He** — vision / deep learning. [Homepage](https://people.csail.mit.edu/kaiming/)
+- **Tommi Jaakkola** — ML / NLP / molecules. [CSAIL](https://www.csail.mit.edu/person/tommi-jaakkola) · [Homepage](https://people.csail.mit.edu/tommi/)
+- **Regina Barzilay** — NLP / ML for health. [Homepage](https://people.csail.mit.edu/regina/)
+- **Jacob Andreas** — NLP / LLMs. [Homepage](https://www.mit.edu/~jda/)
+- **Phillip Isola** — vision / generative. [Homepage](https://web.mit.edu/phillipi/)
+- **Antonio Torralba** — vision. [Lab](https://www.csail.mit.edu/person/antonio-torralba)
+- **Pulkit Agrawal** — robot learning. [Homepage](https://people.csail.mit.edu/pulkitag/)
+- Summer: [MSRP](https://oge.mit.edu/msrp/) (visiting undergrads) · [UROP](https://urop.mit.edu/) (MIT students). Kaiming He’s page says interns/postdocs may email with CV — still extremely competitive.
+
+### Stanford (#1) — Silicon Valley
+
+- CS: [cs.stanford.edu](https://www.cs.stanford.edu/) · SAIL: [ai.stanford.edu](https://ai.stanford.edu/)
+- **Percy Liang** — NLP / foundation models. [Homepage](https://cs.stanford.edu/~pliang/) · [Stanford NLP](https://nlp.stanford.edu/)
+- **Fei-Fei Li** — vision. [Stanford Vision / HAI](https://svl.stanford.edu/)
+- **Chelsea Finn** — robot learning / RL. [Homepage](https://ai.stanford.edu/~cbfinn/)
+- **Tatsunori Hashimoto** — NLP / trustworthy LMs. [Homepage](https://thashim.github.io/)
+- **Chris Ré** — data-centric / systems for ML. [Hazy](https://hazyresearch.stanford.edu/)
+- **Jure Leskovec** — graph ML. [SNAP](https://snap.stanford.edu/)
+- **Sanmi Koyejo** — trustworthy ML. [Homepage](https://cs.stanford.edu/~sanmi/)
+- **Jiajun Wu** — vision / physical scene understanding. [Homepage](https://jiajunwu.com/)
+- Summer: [CURIS](https://curis.stanford.edu/) (mostly Stanford undergrads). Outsiders: almost never.
+
+### UC Berkeley (#4) — Bay Area
+
+- EECS: [eecs.berkeley.edu](https://eecs.berkeley.edu/) · BAIR: [bair.berkeley.edu](https://bair.berkeley.edu/)
+- **Pieter Abbeel** — robot learning / deep RL. [Homepage](https://people.eecs.berkeley.edu/~pabbeel/)
+- **Sergey Levine** — deep RL / robot learning. [RAIL](https://rail.eecs.berkeley.edu/)
+- **Jitendra Malik** — vision. [Homepage](https://people.eecs.berkeley.edu/~malik/)
+- **Trevor Darrell** — vision. [Homepage](https://people.eecs.berkeley.edu/~trevor/)
+- **Alexei (Alyosha) Efros** — vision / generative. [Homepage](https://people.eecs.berkeley.edu/~efros/)
+- **Angjoo Kanazawa** — 3D vision. [Homepage](https://people.eecs.berkeley.edu/~kanazawa/)
+- **Dawn Song** — ML security. [Homepage](https://people.eecs.berkeley.edu/~dawnsong/)
+- **Ion Stoica / Sky** — ML systems (vLLM, Ray). [Sky Computing](https://sky.cs.berkeley.edu/)
+- Summer: [SUPERB](https://eecs.berkeley.edu/research/superb) (beginner-friendly relative to cold email).
+
+### Illinois Urbana-Champaign (#5)
+
+- Siebel School: [siebelschool.illinois.edu](https://siebelschool.illinois.edu/)
+- **Heng Ji** — NLP / information extraction. [BLENDER](https://blender.cs.illinois.edu/)
+- **Bo Li** — trustworthy / secure ML. [Homepage](https://aisecure.github.io/)
+- **Hanghang Tong** — graph ML / data mining. [Profile](https://siebelschool.illinois.edu/about/people/all-faculty/htong)
+- **Nan Jiang** — RL (methods + practice). [Homepage](https://nanjiang.cs.illinois.edu/)
+- **Dilek Hakkani-Tür** — conversational AI. Search [faculty directory](https://siebelschool.illinois.edu/about/people/faculty)
+- **Jiawei Han** — data mining. [Homepage](https://hanj.cs.illinois.edu/)
+- Summer: [NCSA FoDOMMaT REU](https://reu.ncsa.illinois.edu/) (ML for science; research not required).
+
+### Princeton (#6)
+
+- CS: [cs.princeton.edu](https://www.cs.princeton.edu/)
+- **Danqi Chen** — NLP / LLMs. [Princeton NLP](https://princeton-nlp.github.io/) · [Homepage](https://www.cs.princeton.edu/~danqic/)
+- **Karthik Narasimhan** — NLP / RL for language. [Homepage](https://www.cs.princeton.edu/~karthikn/) · [Princeton NLP](https://princeton-nlp.github.io/)
+- **Olga Russakovsky** — vision / fairness in vision. [Homepage](https://www.cs.princeton.edu/~olgarus/)
+- **Jia Deng** — vision. [Homepage](https://www.cs.princeton.edu/~jiadeng/)
+- **Ryan Adams** — probabilistic ML. [Homepage](https://www.cs.princeton.edu/~rpa/)
+- Summer: almost no open internships. Use for **PhD**. Undergrads: [Princeton internships](https://cs.princeton.edu/) listings if any.
+
+### Cornell (#7) — Ithaca (also Cornell Tech NYC)
+
+- CS: [cs.cornell.edu](https://www.cs.cornell.edu/) · Cornell Tech: [tech.cornell.edu](https://tech.cornell.edu/)
+- **Kilian Weinberger** — deep learning. [Homepage](https://www.cs.cornell.edu/~kilian/)
+- **Thorsten Joachims** — ranking / LLMs / recommendations. [Homepage](https://www.cs.cornell.edu/people/tj/)
+- **Claire Cardie** — NLP. [Homepage](https://www.cs.cornell.edu/home/cardie/)
+- **Yoav Artzi** — language grounding (Cornell Tech). [Homepage](https://yoavartzi.com/)
+- **Wen Sun** — RL. [Homepage](https://www.cs.cornell.edu/~wsun/)
+- **Noah Snavely** — vision (Tech). [Homepage](https://www.cs.cornell.edu/~snavely/)
+- Summer: [Bowers CIS REU](https://www.cs.cornell.edu/) / college REU listings. Ithaca vs NYC: Tech is more industry-adjacent.
+
+### Georgia Tech (#7) — Atlanta
+
+- Computing: [cc.gatech.edu](https://www.cc.gatech.edu/) · [ML@GT](https://ml.gatech.edu/)
+- **Dhruv Batra** — vision / embodied AI. [Homepage](https://faculty.cc.gatech.edu/~dbatra/)
+- **Devi Parikh** — vision / vision-language. [Homepage](https://faculty.cc.gatech.edu/~parikh/)
+- **Zsolt Kira** — robot learning / vision. [Homepage](https://faculty.cc.gatech.edu/~zkira/)
+- **Polo Chau** — visual analytics / graph ML. [Homepage](https://faculty.cc.gatech.edu/~dchau/)
+- **Mark Riedl** — NLP / narrative AI. [Homepage](https://www.cc.gatech.edu/~riedl/)
+- **Tuo Zhao** — optimization for deep learning (applied). [Homepage](https://www2.isye.gatech.edu/~tzhao80/)
+- Summer: [GT VIP](https://www.vip.gatech.edu/) · College of Computing REU when listed on [ml.gatech.edu](https://ml.gatech.edu/).
+
+### University of Washington (#7) — Seattle
+
+- Allen School: [cs.washington.edu](https://www.cs.washington.edu/)
+- **Hannaneh Hajishirzi** — NLP / LLMs (OLMo / Ai2). [Homepage](https://homes.cs.washington.edu/~hannaneh/)
+- **Noah A. Smith** — NLP. [Homepage](https://nasmith.github.io/)
+- **Luke Zettlemoyer** — NLP / LLMs. [Faculty](https://www.cs.washington.edu/people/faculty/lsz)
+- **Ali Farhadi** — vision. [Homepage](https://homes.cs.washington.edu/~ali/)
+- **Ludwig Schmidt** — robust / empirical ML. [Homepage](https://people.csail.mit.edu/ludwigs/) (UW faculty; page may redirect)
+- **Pang Wei Koh** — reliable ML / data-centric. [Homepage](https://koh.pw/)
+- Summer: Allen School internships are rare for outsiders; watch [cs.washington.edu/academics](https://www.cs.washington.edu/academics). Seattle internships (Amazon, Google, Meta) are the usual summer path.
+
+---
+
 ## Group A — ranks 10–21 (ML labs, still selective)
 
-Good PhD targets. Summer as a beginner is possible via **named programs**, not by cold-emailing the famous PI.
+Includes **UT Austin (#10)**, which closes the official top-10 list. Good PhD targets. Summer as a beginner is possible via **named programs**, not by cold-emailing the famous PI.
 
 ### UT Austin (#10) — Austin
 
@@ -351,6 +465,11 @@ Use for **PhD later**, not beginner summer:
 | Program | Link | Notes |
 | --- | --- | --- |
 | NSF ETAP (all REUs) | https://etap.nsf.gov/ | Search “machine learning” |
+| Stanford CURIS | https://curis.stanford.edu/ | Mostly Stanford undergrads |
+| Berkeley SUPERB | https://eecs.berkeley.edu/research/superb | Visiting UG |
+| MIT MSRP | https://oge.mit.edu/msrp/ | Visiting undergrads |
+| CMU HCII REU | https://www.hcii.cmu.edu/summer-research-program | US funding priority |
+| Illinois NCSA FoDOMMaT | https://reu.ncsa.illinois.edu/ | ML for science |
 | Northwestern AI/Security/Privacy REU | https://aspreu.northwestern.edu/ | Beginners; US citizen/PR |
 | Maryland REU-CAAR | https://www.cs.umd.edu/projects/reucaar/ | Algorithms + AI |
 | Michigan SURE | https://sure.engin.umich.edu/ | Engineering-wide |
@@ -363,9 +482,9 @@ Use for **PhD later**, not beginner summer:
 
 ---
 
-## Suggested first 10 (ML lab + realistic)
+## Suggested first 10 (ML lab + realistic summer)
 
-If you only email ten people, use this order:
+If you only **email** ten people for a first summer, still use Group B/C:
 
 1. Stephan Mandt — UCI — https://www.stephanmandt.com/
 2. Sameer Singh — UCI — https://sameersingh.org/
@@ -380,10 +499,14 @@ If you only email ten people, use this order:
 
 Plus apply: **Northwestern REU**, **Purdue SURF**, **Duke Data+**.
 
+For **PhD** (not beginner summer), add Group T: Hajishirzi, Danqi Chen, Heng Ji, Graham Neubig, Jacob Andreas, Chelsea Finn, Sergey Levine, Kilian Weinberger, Dhruv Batra, Bo Li.
+
 ---
 
 ## Schools in this file (checklist)
 
-UT Austin, Michigan, UCSD, Maryland, Columbia, Purdue, UCLA, Wisconsin, Penn, JHU, USC, Duke, Rice, NYU, UCI, UCSB, Brown, Northwestern, UMass Amherst, UNC, Northeastern, CU Boulder, UC Davis, Minnesota, ASU, Rutgers, Stony Brook, BU, NC State, Utah, UC Santa Cruz.
+**Group T (1–9):** CMU, MIT, Stanford, Berkeley, Illinois, Princeton, Cornell, Georgia Tech, Washington.
 
-Not in this file (by design): CMU, MIT, Stanford, Berkeley, Illinois, Princeton, Cornell, Georgia Tech, Washington, Caltech, Harvard, Yale, UCR, UTD, UIC, GMU, UMBC, UC Merced, Santa Clara.
+**Groups A–C:** UT Austin (#10), Michigan, UCSD, Maryland, Columbia, Purdue, UCLA, Wisconsin, Penn, JHU, USC, Duke, Rice, NYU, UCI, UCSB, Brown, Northwestern, UMass Amherst, UNC, Northeastern, CU Boulder, UC Davis, Minnesota, ASU, Rutgers, Stony Brook, BU, NC State, Utah, UC Santa Cruz.
+
+**Not in this file:** Caltech, Harvard, Yale (tiny/elite; see note above), UCR, UTD, UIC, GMU, UMBC, UC Merced, Santa Clara.
