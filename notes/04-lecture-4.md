@@ -57,6 +57,7 @@ languages, all in the same mixture.
 continuation, with cross-entropy loss, at every position simultaneously.
 
 **Data mixtures:**
+
 - web-scraped text (Common Crawl, Wikipedia),
 - code (GitHub, StackOverflow).
 
@@ -85,6 +86,7 @@ The lecture is careful here because the two are constantly confused:
 
 - **FLOPs** — **FL**oating-point **OP**eration**s**. A *count*. "This training
   run took 3×10²³ FLOPs." A measure of work.
+
 - **FLOPS** or **FLOP/s** — floating-point operations **per second**. A *rate*.
   "This GPU delivers 1000 TFLOPS." A measure of speed.
 
@@ -151,17 +153,21 @@ budget. A model four times smaller, trained on five times more data, won.
 ### Challenges of pretraining
 
 **Cost:**
+
 - **at least millions of dollars**,
 - it takes a long time (weeks to months on thousands of GPUs),
 - environmental and electricity impact.
 
 **Learned knowledge:**
+
 - **"knowledge cutoff"** — the model knows nothing after its training data ends.
   The lecture shows this literally, as the cutoff date printed on OpenAI's GPT-5
   model page.
+
 - **hard to edit knowledge** — there is no `UPDATE` statement for a fact stored
   distributed across billions of weights. Retraining is the blunt option;
   Lecture 7's RAG is the practical one.
+
 - **"plagiarism"** — models can reproduce memorised training text verbatim,
   with the legal and ethical questions that entails.
 
@@ -175,11 +181,14 @@ Walking through one training step makes the memory budget explicit:
 
 1. **Initialisation.** Model parameters: `O(billions)` to `O(hundreds of
    billions)`.
+
 2. **Forward pass** — compute the loss. This requires storing **activations**,
    needed later to compute gradients. Activation memory is a function of model
    size, **batch size**, and **context length**.
+
 3. **Backward pass** — compute **gradients**, needed for the weights update. One
    gradient per parameter.
+
 4. **Weights update** — apply the optimiser. This requires the **optimiser
    state**.
 
@@ -244,13 +253,17 @@ in the lecture:
 - **Tensor Parallelism (TP)** — split individual matrices across GPUs, so a
   single matmul is performed cooperatively. Needs very fast interconnect;
   normally used *within* a node.
+
 - **Pipeline Parallelism (PP)** — assign different *layers* to different GPUs;
   micro-batches flow through the pipeline. Cheap on communication, but suffers
   from pipeline "bubbles" where GPUs idle.
+
 - **Sequence Parallelism (SP)** — split along the sequence dimension for the
   operations where that is valid.
+
 - **Context Parallelism (CP)** — split the context/attention computation across
   devices, for very long sequences.
+
 - **Expert Parallelism (EP)** — place different MoE experts on different GPUs.
 
 *(Suggested reading: "The Ultra-Scale Playbook: Training LLMs on GPU Clusters",
@@ -270,6 +283,7 @@ computations.** The relevant hardware facts:
 - **HBM** (high-bandwidth memory) — **big and slow**, tens of GB.
 - **SRAM** (on-chip) — **small and fast**, tens of MB, orders of magnitude
   faster.
+
 - **CU** — the compute units.
 
 **What standard self-attention does**, step by step, with every data movement
@@ -401,8 +415,10 @@ initialised ────────────→ model with "basic ───�
 **Idea: change the model's behaviour by tuning its weights.**
 
 **Strategy:**
+
 - collect pairs of inputs/outputs exhibiting the desired behaviour (**SFT
   data**),
+
 - train using the **next-word-prediction objective given the input**.
 
 **Special case:** SFT on instruction-following data is called **instruction
@@ -426,12 +442,15 @@ demonstrated responses. The lecture's examples:
 
 - **Story writing** — *"Write a short story about a teddy bear who likes to read
   poetry."* → a short story.
+
 - **Poem creation** — *"Create a poem about my cute teddy bear."* → *"Soft and
   cuddly, full of charm, / Always keeps me safe from harm, / With button eyes
   and fur so neat, / My teddy bear is oh so sweet."*
+
 - **List generation** — *"List three fun activities a teddy bear might do on a
   rainy day."* → *"Sure! 1. Read poetry with friends. 2. Be cute. 3. Hug its
   owner tightly."*
+
 - **Explanation** — *"Explain why a teddy bear is a great friend."* → a
   paragraph of explanation.
 
@@ -439,6 +458,7 @@ demonstrated responses. The lecture's examples:
 `[BOS] Do X . Sure ...` and train on the response portion.
 
 **Data mixtures** — both human-written and synthetic:
+
 - assistant dialogues,
 - synthetic instructions,
 - maths, reasoning, code,
@@ -457,6 +477,8 @@ demonstrated responses. The lecture's examples:
 > *"Can I put my teddy bear in the washer?"* →
 > *"No, it might get damaged. Try hand washing instead."*
 
+<!-- -->
+
 > **Intuition — why so few examples suffice.** 13,000 examples is nothing next to
 > 300 billion pretraining tokens, yet it transforms the model's behaviour. The
 > explanation is that instruction tuning does not *teach* anything new — the
@@ -474,6 +496,7 @@ demonstrated responses. The lecture's examples:
 - **very high-quality data needed**,
 - **sensitive to prompt distribution** — the model becomes good at the kinds of
   request it saw, and can regress on others,
+
 - **generalisation** — will it behave well on requests unlike the training set?
 - **difficult to evaluate**,
 - **computationally expensive**.
@@ -481,6 +504,7 @@ demonstrated responses. The lecture's examples:
 ### Benchmarks
 
 **Dimensions measured:**
+
 - **general knowledge:** MMLU,
 - **basic reasoning:** ARC-Challenge,
 - **math reasoning:** GSM8K,
@@ -506,14 +530,18 @@ the votes are aggregated into an Elo-style ranking.
 
 **Outstanding challenges** (drawing on *Exploring and Mitigating Adversarial
 Manipulation of Voting-Based Leaderboards*, Huang et al., 2025):
+
 - **unequal exposure of models / "cold start"** — a new model has few votes and a
   noisy rating,
+
 - **easy to "rig"** — coordinated voting can move a model's position,
 - **user inability to accurately assess important aspects**, notably
   **factuality** — a confident wrong answer often reads better than a hedged
   right one,
+
 - **personal preference bias** — the voter population is not a representative
   distribution of real usage,
+
 - **safety penalisation** — a model that correctly refuses a harmful request
   loses the vote to one that complies.
 
@@ -554,6 +582,7 @@ where `W₀` is the frozen pretrained weight matrix (`d × d`), and `B` is `d ×
 
 - **Before:** regular finetuning optimises the **full** matrix `W` — `d²`
   parameters.
+
 - **After:** LoRA freezes `W₀` and optimises only `A` and `B` — `2·d·r`
   parameters.
 
@@ -561,8 +590,10 @@ With `d = 4096` and `r = 8`, that is 16.7M parameters down to 65k: a **256×**
 reduction for that matrix.
 
 **Discussion:**
+
 - a **fraction of the parameters** need to be trained, with **similar
   performance**,
+
 - other methods in the same family include **prefix tuning** and **adapters**.
 
 > **Intuition — why a low-rank update is enough.** The hypothesis, which turns
@@ -604,6 +635,7 @@ W₀ + B_translate·A_translate  → translation task
 
 - **Originally:** as experimented in the LoRA paper — the attention projections,
   typically `W_Q` and `W_V`.
+
 - **Updated guidance** (Schulman et al., 2025, *LoRA Without Regret*): the
   **MLP / feed-forward layers are the most important location**, and current
   recommendation is to apply LoRA to **all** linear layers.
@@ -614,6 +646,7 @@ From *LoRA Without Regret*, two empirical differences from full finetuning:
 
 - **LoRA needs a higher learning rate** than full finetuning (roughly an order of
   magnitude higher).
+
 - **LoRA does poorly at large batch size** compared with full finetuning.
 
 > **Intuition.** Both follow from the same cause. The effective update is
@@ -630,6 +663,7 @@ From *LoRA Without Regret*, two empirical differences from full finetuning:
 **Idea: quantise all frozen weights to relieve the memory bottleneck.**
 
 The arrangement:
+
 - `W₀` is **stored quantised** (4-bit),
 - `A` and `B` are **stored in full precision**,
 - **computations are performed in full precision** — `W₀` is dequantised
@@ -657,10 +691,12 @@ quantisation constants too.
 - *Double quantisation* — weights quantised, **and constants quantised as well**.
 
 **Benefits:**
+
 - VRAM savings enable finetuning on smaller GPUs, and faster,
 - a better trade-off between memory resources and quality.
 
 **Orders of magnitude, reported for LLaMA 65B:**
+
 - **~16× VRAM savings** during finetuning,
 - the double-quantisation trick saves an **extra ~6%**.
 

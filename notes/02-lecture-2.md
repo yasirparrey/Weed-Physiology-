@@ -89,6 +89,7 @@ Two well-known instances:
   distances bucketed (so that distances 1, 2, 3 get their own buckets while
   distances 100–127 share one). Each head learns its own preferred distance
   profile.
+
 - **ALiBi** (Press et al., 2021, *Train Short, Test Long*) — the bias is
   **linear, deterministic, and not bounded**: `b(i − j) = −m·|i − j|`, with a
   different slope `m` per head. Nothing is learned; a token is penalised in
@@ -151,6 +152,8 @@ So RoPE bakes in a mild, automatic recency prior too.
 > the residual stream, and — importantly for Lecture 3 — is compatible with KV
 > caching, because you rotate each key once when you compute it and it stays
 > valid forever.
+
+<!-- -->
 
 > **Watch out — RoPE is applied to `q` and `k` only, never to `v`.** The
 > position information belongs in the *matching* computation, not in the content
@@ -244,6 +247,7 @@ local. So restrict which cells you compute:
 
 - **Sliding-window attention (SWA):** each token attends only to a window of `w`
   neighbours on each side. Cost drops from `O(n²)` to `O(n·w)`, linear in `n`.
+
 - **Global attention on selected tokens:** a small number of designated tokens
   (`[CLS]`, or task-specific ones such as the question tokens in QA) attend to
   everything *and* are attended to by everything.
@@ -279,9 +283,11 @@ The idea is to **share key/value heads within groups of queries**:
 
 - **MHA** — `h` query heads, `h` key heads, `h` value heads. Maximum expressive
   power, maximum memory.
+
 - **GQA (Grouped-Query Attention)** — `h` query heads, but only `G` key heads
   and `G` value heads, with `G < h`. Query heads are partitioned into `G` groups;
   all queries in a group share one K/V pair.
+
 - **MQA (Multi-Query Attention)** — the extreme: `h` query heads, **1** key head
   and **1** value head. Every query head shares the same keys and values.
 
@@ -389,6 +395,7 @@ vocabulary size around **30,000**; it is *great at detecting common particles*
 (the frequent prefixes and suffixes get their own tokens).
 
 **Special tokens, for the NSP/MLM setup:**
+
 - `[CLS]` at the very beginning of the input.
 - `[SEP]` separating consecutive segments, plus one at the end.
 - `[MASK]` to hide inputs during MLM.
@@ -398,6 +405,7 @@ vocabulary size around **30,000**; it is *great at detecting common particles*
 
 1. **Token embedding** — a gigantic lookup table, one learned vector per
    vocabulary entry.
+
 2. **Positional encoding** — learned or fixed sines/cosines, as in Lecture 1.
 3. **Segment encoding (new in BERT!)** — a shared embedding identifying which
    segment a token belongs to: all of segment A gets one vector, all of segment
@@ -454,11 +462,13 @@ The prediction is read off the `[CLS]` token's final representation.
 ### Hyperparameters and model sizes
 
 **Model:**
+
 - `L` — number of layers,
 - `H` — hidden layer size, i.e. the embedding dimension,
 - `A` — number of attention heads operating in parallel.
 
 **Data:**
+
 - *language-specific vs multilingual* — which languages it was trained on,
 - *cased vs uncased* — whether inputs are lowercased.
 
@@ -480,16 +490,20 @@ The prediction is read off the `[CLS]` token's final representation.
 **Goal:** leverage the embeddings BERT learned for a "sister" task.
 
 **Tricks:**
+
 - start from the weights of the massively pretrained model,
 - **freezing early layers** sometimes gives a better complexity/performance
   trade-off,
+
 - great results are possible with **minimal labelled data**, depending on how
   complex the task is and how close it is to the pretraining data distribution
   and objectives.
 
 **Use cases:**
+
 - *sequence classification* — one label for the whole input, e.g. sentiment
   extraction,
+
 - *token classification* — one label per token, e.g. extractive question
   answering (predicting answer start and end positions).
 
@@ -501,11 +515,14 @@ Input: `This teddy bear is SO CUTE!`
 2. **Tokenise** with WordPiece: `this | teddy | bear | is | so | cute | !`
 3. **Prepend `[CLS]`** — the lecture's phrasing is that it acts as *a
    placeholder for the sentiment*.
+
 4. **Append `[SEP]`**, then `[PAD]` out to the fixed sequence length:
    `[CLS] this teddy bear is so cute ! [SEP] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]`
+
 5. **Add the token embedding**, then the **position embedding** (indices
    0,1,2,...,14), then the **segment embedding** (here segment A for the real
    text and B for the padding region).
+
 6. Feed the resulting matrix through the **pretrained BERT encoder**.
 7. Take the final-layer vector at the `[CLS]` position, pass it through a small
    **feed-forward network**, and read off the sentiment class.
@@ -527,9 +544,11 @@ sentences — the thing Word2vec could not do); adaptable to many classification
 tasks. **Widely used in industry for anything related to encoding.**
 
 **Limitations:**
+
 - context window size is limited,
 - computationally expensive — a hard sell for low-latency or cost-sensitive
   applications,
+
 - the training paradigm is complex: MLM + NSP pretraining *and then* finetuning.
 
 ---
@@ -567,13 +586,16 @@ Distil BERT-Base (`N = 12` layers) down to **`N = 6` layers**. Result:
 what in BERT's recipe actually mattered?
 
 **Modelling findings:**
+
 - **Removing NSP and segment encodings: approximately no effect!** (DistilBERT
   had already dropped it.)
+
 - **Static → dynamic masking** across epochs: rather than masking each sequence
   once during preprocessing and reusing that mask every epoch, generate a fresh
   mask each time the example is seen.
 
 **Data findings:**
+
 - **richer**: pretraining corpus from **16 GB → 160 GB**,
 - **for longer**: 1M steps at batch size 256, versus 500k steps at batch size 8k
   (a much larger total token count).

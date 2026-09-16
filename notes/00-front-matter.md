@@ -18,9 +18,11 @@ Three kinds of text appear throughout, and it is worth knowing which is which:
 
 - **Plain body text** is the lecture content itself: definitions, mechanisms,
   formulas, numbers, paper references.
+
 - **Boxes labelled "Intuition"** are added explanation. They exist to answer
   the question "*but why does that work?*", which is usually the part that
   makes a technique stick in memory.
+
 - **Boxes labelled "Watch out"** flag the places where notation is confusing,
   where two similar-sounding ideas are actually different, or where a naive
   reading of the slide would leave you with a wrong mental model.

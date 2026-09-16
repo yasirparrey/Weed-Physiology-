@@ -20,6 +20,7 @@ you how likely that sequence is; equivalently, given a prefix, it gives you a
 distribution over what comes next.
 
 **"Large"** — quantified in the lecture as:
+
 - **model size:** billions of parameters or more,
 - **training data:** hundreds of billions of tokens or more,
 - **compute:** a lot of GPUs.
@@ -55,6 +56,7 @@ and the output is a combination of expert outputs.
 
 - **Dense MoE** — the output is the weighted average of **all** expert outputs,
   with weights like `[0.1, 0.8, 0.05, ...]` from the gate.
+
 - **Sparse MoE** — the output is the weighted average of only the **selected**
   expert outputs, chosen by **top-k selection** (Shazeer et al., 2017,
   *Outrageously Large Neural Networks*).
@@ -163,9 +165,11 @@ p_i = exp(z_i / T) / Σ_j exp(z_j / T)
 where `z` are the logits and `T` is the **temperature**.
 
 **Impact of temperature:**
+
 - **Small `T`** — dividing by a small number magnifies the differences between
   logits, so the distribution becomes **sharper**; in the limit `T → 0` it
   becomes a point mass on the argmax (equivalent to greedy decoding).
+
 - **High `T`** — differences are flattened, the distribution becomes more
   **uniform**; in the limit `T → ∞` you sample uniformly at random from the
   vocabulary.
@@ -224,6 +228,7 @@ strategies:
 
 - **Top-k** — sample among the `k` most probable tokens only (e.g. `k = 4`),
   renormalising over them.
+
 - **Top-p (nucleus)** — sample from the **smallest set of tokens whose
   cumulative probability is ≥ `p`** (e.g. `p = 90%`).
 
@@ -306,6 +311,7 @@ The lecture decomposes a prompt into four parts:
 - **Context** — *"My teddy bear had a long day and needs a bedtime story."*
 - **Instructions** — *"Generate a bedtime story that takes place in a specific
   location."*
+
 - **Input** — *"Location: Country of teddy bears"*
 - **Constraints** — *"The story needs to be suitable for teddy bears that are
   tired."*
@@ -320,6 +326,7 @@ The lecture decomposes a prompt into four parts:
 | performance depends heavily on the quality of the initial model | typically **better performance** |
 
 **Discussion — showing examples in the prompt is generally better, but:**
+
 - it requires effort (you have to write and curate good examples),
 - it increases computational complexity and cost (you pay per input token),
 - it increases latency.
@@ -387,6 +394,7 @@ Sample **several** chains of thought for the same question (which requires
 
 - *"It will be one year older than its age this year, which was 4. Hence, it
   will be 5."* → 5
+
 - *"The bear was born in 2020. It will therefore be 5."* → 5
 - *"Next year is 2024. The bear will then be 4."* → 4
 
@@ -415,11 +423,13 @@ complexity?** The lecture organises the answer into two categories, which is a
 genuinely useful mental filing system:
 
 **"Exact" efficiency** — same output, less work:
+
 - avoid redundancies,
 - memory management,
 - reformulate the maths.
 
 **Approximations** — accept a (hopefully tiny) change in output:
+
 - architectural changes,
 - embedding representations,
 - token prediction.
@@ -509,6 +519,7 @@ the per-head `d_head` is *too big*.
 
 - **Before:** for each token you store `h` full-size key vectors and `h`
   full-size value vectors.
+
 - **After:** you store one **shared low-dimensional latent vector** per token.
   When attention needs them, the full keys and values for all heads are
   **reconstructed** from that latent by up-projection matrices.
@@ -538,9 +549,11 @@ are validated by a target (big) model.**
 1. The **draft LLM** autoregressively generates `k` candidate tokens cheaply —
    e.g. from `[BOS] my teddy bear` it proposes `is cute and smart` — recording
    its probabilities `P₁, ..., P_k`.
+
 2. The **target LLM** processes the whole proposed sequence
    `[BOS] my teddy bear is cute and smart` in **one parallel forward pass**,
    producing its own probabilities `Q₁, ..., Q_k, Q_{k+1}`.
+
 3. Accept or reject each proposed token in order:
    - if `Q_i(token) ≥ P_i(token)` → **accept**;
    - otherwise → accept with probability `Q_i(token) / P_i(token)`, and
@@ -584,6 +597,8 @@ the speculative continuation, and the main head verifies it.
 > improves quality on tasks like code generation, where you must plan a few
 > tokens ahead. DeepSeek-V3 uses MTP both as a training objective and as a
 > built-in speculative decoder.
+
+<!-- -->
 
 > **Watch out — a summary of what is exact and what is not.** KV caching,
 > PagedAttention and speculative decoding are **exact**: bit-for-bit (or

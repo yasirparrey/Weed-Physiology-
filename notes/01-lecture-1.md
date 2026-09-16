@@ -61,9 +61,11 @@ The lecture introduces three metrics that reappear in Lecture 8:
 - **BLEU** — measures how much of the *generated* text appears in the
   reference. It is precision-flavoured: it asks "of the n-grams I produced, how
   many were legitimate?" Designed for machine translation.
+
 - **ROUGE** — the mirror image. It is recall-flavoured: "of the n-grams in the
   reference, how many did I manage to produce?" Designed for summarisation,
   where coverage matters more than terseness.
+
 - **Perplexity (PPL)** — not a comparison against a reference at all, but a
   measure of how *surprised* the model is by real text. Formally it is the
   exponentiated average negative log-likelihood; intuitively, a perplexity of
@@ -145,6 +147,8 @@ unambiguously.
 > (`ted` + `##dy`), and nothing is unrepresentable. This is why essentially
 > every modern model uses BPE or a close relative.
 
+<!-- -->
+
 > **Watch out.** "Risk of OOV, though less than word-level" for sub-word is a
 > deliberately careful phrasing. Sub-word tokenisers usually include a
 > byte-level fallback, so in practice they are OOV-free — but the vocabulary
@@ -165,6 +169,7 @@ problems, both fatal:
 
 1. **Size.** `V` is typically 30,000–100,000+. Every token is a vector that
    large, almost entirely zeros.
+
 2. **No notion of similarity.** Every pair of distinct one-hot vectors is
    exactly equally distant. The representation of *cat* is precisely as far
    from *kitten* as it is from *bulldozer*. All the structure of language is
@@ -188,6 +193,7 @@ Two standard proxy tasks:
 
 - **CBOW (Continuous Bag Of Words)** — given the surrounding context words,
   predict the missing centre word.
+
 - **Skip-gram** — the reverse: given the centre word, predict the surrounding
   context words.
 
@@ -203,6 +209,7 @@ consequence, no depth.
 - The output layer produces a distribution over the vocabulary, e.g.
   `[0.2, 0.4, 0.1, 0.1, 0.1, 0.1]`, and we compare that against the true next
   word `cute`.
+
 - Then slide along: input `cute` as `[0,1,0,0,0,0]`, hidden `[0.8, 0.4]`, output
   `[0.2, 0.2, 0.2, 0.1, 0.2, 0.1]`, target `teddy`. And so on across the corpus.
 
@@ -346,9 +353,11 @@ For one query, attention proceeds in four steps:
 
 1. **Score** the query against every key by dot product: `score_j = q · k_j`.
    A large dot product means "this key matches what I was looking for".
+
 2. **Scale** by `√d_k`.
 3. **Normalise** the scores into weights with a softmax, so they are positive
    and sum to 1.
+
 4. **Combine**: output the weighted average of the *value* vectors, using those
    weights.
 
@@ -382,6 +391,8 @@ where `Q` is `n × d_k`, `K` is `n × d_k`, `V` is `n × d_v`, so `Q·Kᵀ` is t
 > position through a *single* matrix multiplication — path length 1, not `n`. So
 > gradients do not have to survive `n` sequential steps, and the whole thing is
 > one big matmul, which is exactly what GPUs are built for.
+
+<!-- -->
 
 > **Watch out.** `V` here is the value matrix, not the vocabulary size. The
 > course reuses the letter. Context disambiguates: inside an attention formula
@@ -430,12 +441,15 @@ The original Transformer is an **encoder–decoder** model with three kinds of
 component.
 
 **Attention layers (MHA), in three roles:**
+
 - *Encoder self-attention* (encoder–encoder): source tokens attend to source
   tokens.
+
 - *Decoder self-attention* (decoder–decoder): output tokens attend to previously
   generated output tokens. This one must be **masked** so that position `t`
   cannot see positions `> t`, otherwise the model would cheat at training time
   by reading the answer.
+
 - *Encoder–decoder cross-attention*: queries come from the decoder, keys and
   values from the encoder output. This is the direct descendant of Bahdanau
   attention, and it is the only place where source information enters the
@@ -532,13 +546,17 @@ sequence.
 5. **Stack** them into a matrix (one row per token, `d_model` columns).
 6. Feed that matrix into the encoder. Multiply it by `W_Q`, `W_K`, `W_V` to get
    `Q`, `K`, `V`.
+
 7. Compute `Q·Kᵀ`: an `n × n` grid where entry `(i, j)` is how much token `i`
    attends to token `j`. Softmax each row.
+
 8. Multiply by `V`: each output row is a **weighted average of value vectors,
    with weights determined by the query–key match**. That sentence is the whole
    mechanism in one line.
+
 9. This happens `h` times in parallel; concatenate the heads and project through
    `W_O`.
+
 10. Pass through the feed-forward network. Output: **context-aware encoded
     embeddings** — one vector per input token, each now informed by the whole
     sentence.
