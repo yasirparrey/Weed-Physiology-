@@ -3,11 +3,17 @@
 
 Usage:  python3 build_pdf.py
 Output: CME295-Transformers-and-LLMs-Notes.pdf
+
+LaTeX between $...$ / $$...$$ is typeset by MathJax into SVG, which requires
+node plus `npm install` in this directory (see package.json).
 """
 
 from __future__ import annotations
 
+import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -17,6 +23,7 @@ from weasyprint import HTML
 ROOT = Path(__file__).parent
 NOTES_DIR = ROOT / "notes"
 OUTPUT = ROOT / "CME295-Transformers-and-LLMs-Notes.pdf"
+RENDERER = ROOT / "tools" / "render_math.js"
 
 CSS = """
 @page {
@@ -141,6 +148,17 @@ pre {
 }
 pre code { background: none; padding: 0; font-size: 8.2pt; }
 
+/* ---- maths ---- */
+svg.mjx { overflow: visible; }
+span.eqn {
+    display: block;
+    text-align: center;
+    margin: 3mm 0 3.4mm 0;
+    page-break-inside: avoid;
+}
+blockquote span.eqn { margin: 2.4mm 0; }
+li span.eqn { margin: 1.8mm 0; }
+
 /* ---- callout boxes (blockquotes) ---- */
 blockquote {
     margin: 0 0 3.4mm 0;
@@ -200,6 +218,103 @@ hr { border: none; border-top: 0.6px solid #d8d8d8; margin: 5mm 0; }
     font-size: 8.5pt;
 }
 """
+
+
+FENCE_RE = re.compile(r"(?ms)^```.*?^```")
+INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
+DISPLAY_MATH_RE = re.compile(r"\$\$(.+?)\$\$", re.S)
+INLINE_MATH_RE = re.compile(r"(?<!\$)\$(?!\s)([^$\n]+?)(?<!\s)\$(?!\$)")
+PLACEHOLDER = "MJXFRAGMENT{}ZZ"
+PLACEHOLDER_RE = re.compile(r"MJXFRAGMENT(\d+)ZZ")
+EX_PER_EM = 0.5  # the renderer is called with em=16, ex=8
+
+
+def extract_math(text: str, store: list[tuple[str, bool]]) -> str:
+    """Swap $...$ / $$...$$ for placeholders, leaving code spans untouched."""
+
+    def take(tex: str, display: bool) -> str:
+        store.append((tex.strip(), display))
+        return PLACEHOLDER.format(len(store) - 1)
+
+    def in_prose(chunk: str) -> str:
+        chunk, spans = protect_inline_code(chunk)
+        chunk = DISPLAY_MATH_RE.sub(lambda m: take(m.group(1), True), chunk)
+        chunk = INLINE_MATH_RE.sub(lambda m: take(m.group(1), False), chunk)
+        return restore_inline_code(chunk, spans)
+
+    out = []
+    pos = 0
+    for protected in FENCE_RE.finditer(text):
+        out.append(in_prose(text[pos : protected.start()]))
+        out.append(protected.group(0))
+        pos = protected.end()
+    out.append(in_prose(text[pos:]))
+    return "".join(out)
+
+
+def protect_inline_code(text: str) -> tuple[str, list[str]]:
+    spans: list[str] = []
+
+    def repl(match: re.Match[str]) -> str:
+        spans.append(match.group(0))
+        return f"MJXCODE{len(spans) - 1}ZZ"
+
+    return INLINE_CODE_RE.sub(repl, text), spans
+
+
+def restore_inline_code(text: str, spans: list[str]) -> str:
+    return re.sub(r"MJXCODE(\d+)ZZ", lambda m: spans[int(m.group(1))], text)
+
+
+def typeset(store: list[tuple[str, bool]]) -> list[str]:
+    """Render every collected formula to an inline SVG fragment."""
+    if not store:
+        return []
+    if not RENDERER.exists():
+        raise SystemExit(f"missing math renderer: {RENDERER}")
+
+    payload = json.dumps([{"tex": tex, "display": display} for tex, display in store])
+    env = dict(os.environ)
+    env.setdefault("NODE_PATH", str(ROOT / "node_modules"))
+    proc = subprocess.run(
+        ["node", str(RENDERER)],
+        input=payload,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=str(ROOT),
+    )
+    if proc.returncode != 0:
+        raise SystemExit(
+            "MathJax rendering failed — run `npm install` in the repository root.\n"
+            + proc.stderr.strip()
+        )
+
+    fragments = []
+    for (tex, display), item in zip(store, json.loads(proc.stdout)):
+        width = float(item["width"].removesuffix("ex")) * EX_PER_EM
+        height = float(item["height"].removesuffix("ex")) * EX_PER_EM
+        offset = re.search(r"vertical-align:\s*(-?[\d.]+)ex", item["valign"])
+        valign = float(offset.group(1)) * EX_PER_EM if offset else 0.0
+
+        svg = item["svg"]
+        # MathJax sizes the root <svg> in ex units, which WeasyPrint does not
+        # resolve inside an image; restate the box in em instead.
+        head = re.match(r"<svg[^>]*>", svg).group(0)
+        clean = re.sub(r'\s(?:width|height|style)="[^"]*"', "", head)
+        style = f"width:{width:.3f}em;height:{height:.3f}em;vertical-align:{valign:.3f}em"
+        svg = clean.replace("<svg", f'<svg class="mjx" style="{style}"', 1) + svg[len(head) :]
+
+        if display:
+            svg = f'<span class="eqn">{svg}</span>'
+        fragments.append(svg)
+    return fragments
+
+
+def insert_math(html: str, fragments: list[str]) -> str:
+    html = PLACEHOLDER_RE.sub(lambda m: fragments[int(m.group(1))], html)
+    # A display equation forms its own paragraph; drop the redundant wrapper.
+    return re.sub(r"<p>(<span class=\"eqn\">.*?</span>)</p>", r"\1", html, flags=re.S)
 
 
 def slugify(text: str) -> str:
@@ -274,8 +389,12 @@ def main() -> int:
         return 1
 
     md = markdown.Markdown(extensions=["tables", "fenced_code", "sane_lists"])
+    formulas: list[tuple[str, bool]] = []
 
-    front = md.convert(sources[0].read_text(encoding="utf-8"))
+    def read(path: Path) -> str:
+        return extract_math(path.read_text(encoding="utf-8"), formulas)
+
+    front = md.convert(read(sources[0]))
     # The first document becomes the title page plus a "how to read" section.
     split = front.find("<h2")
     title_html, front_rest = (front, "") if split == -1 else (front[:split], front[split:])
@@ -283,7 +402,7 @@ def main() -> int:
     bodies = []
     for path in sources[1:]:
         md.reset()
-        bodies.append(md.convert(path.read_text(encoding="utf-8")))
+        bodies.append(md.convert(read(path)))
 
     body_html = front_rest + "\n".join(bodies)
     body_html, entries = add_heading_ids(body_html)
@@ -302,6 +421,8 @@ def main() -> int:
 {build_toc(entries)}
 {body_html}
 </body></html>"""
+
+    document = insert_math(document, typeset(formulas))
 
     HTML(string=document, base_url=str(ROOT)).write_pdf(OUTPUT)
     print(f"wrote {OUTPUT} ({OUTPUT.stat().st_size / 1e6:.2f} MB)")
