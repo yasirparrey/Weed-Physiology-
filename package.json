@@ -1,0 +1,9 @@
+{
+  "name": "cme295-notes-build",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MathJax dependency for typesetting the LaTeX in the CME 295 notes PDF",
+  "dependencies": {
+    "mathjax-full": "^3.2.2"
+  }
+}
