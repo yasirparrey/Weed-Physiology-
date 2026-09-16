@@ -96,12 +96,14 @@ nonsense.
 ### Scaling laws
 
 **Kaplan et al., 2020, *Scaling Laws for Neural Language Models*.** The finding:
-loss follows a smooth **power law** in each of model size `N`, dataset size `D`,
-and compute `C`, over many orders of magnitude:
+loss follows a smooth **power law** in each of model size $N$, dataset size $D$,
+and compute $C$, over many orders of magnitude:
 
-```
-L(N) ≈ (N_c / N)^α_N        L(D) ≈ (D_c / D)^α_D        L(C) ≈ (C_c / C)^α_C
-```
+$$L(N) \approx \left(\frac{N_c}{N}\right)^{\alpha_N}
+\qquad
+L(D) \approx \left(\frac{D_c}{D}\right)^{\alpha_D}
+\qquad
+L(C) \approx \left(\frac{C_c}{C}\right)^{\alpha_C}$$
 
 Plotted on log–log axes these are straight lines. The practical consequence is
 extraordinary: you can train a series of small models, fit the line, and
@@ -115,18 +117,16 @@ example, not just better in the limit.
 
 **Hoffmann et al., 2022, *Training Compute-Optimal Large Language Models*.**
 
-The question: given a fixed compute budget `C`, how should you split it between
+The question: given a fixed compute budget $C$, how should you split it between
 making the model bigger and training on more tokens? Kaplan's original answer
 leaned heavily towards bigger models. Chinchilla redid the experiment more
 carefully and found something different:
 
-```
-C ≈ 6·N·D          (compute ≈ 6 × parameters × tokens)
+$$C \approx 6ND \qquad \text{(compute} \approx 6 \times \text{parameters} \times \text{tokens)}$$
 
-optimal:  D ≈ 20·N     — roughly 20 tokens per parameter
-```
+$$\text{optimal:}\quad D \approx 20N \qquad \text{— roughly 20 tokens per parameter}$$
 
-Both `N` and `D` should scale as roughly `C^0.5` — that is, **in equal
+Both $N$ and $D$ should scale as roughly $C^{0.5}$ — that is, **in equal
 proportion**.
 
 The headline demonstration: **Chinchilla (70B parameters, 1.4T tokens)
@@ -179,8 +179,8 @@ budget. A model four times smaller, trained on five times more data, won.
 
 Walking through one training step makes the memory budget explicit:
 
-1. **Initialisation.** Model parameters: `O(billions)` to `O(hundreds of
-   billions)`.
+1. **Initialisation.** Model parameters: $O(\text{billions})$ to
+   $O(\text{hundreds of billions})$.
 
 2. **Forward pass** — compute the loss. This requires storing **activations**,
    needed later to compute gradients. Activation memory is a function of model
@@ -194,18 +194,18 @@ Walking through one training step makes the memory budget explicit:
 
 With the **Adam** optimiser:
 
-```
-m_t = β₁·m_{t−1} + (1 − β₁)·g_t                first moment  (momentum)
-v_t = β₂·v_{t−1} + (1 − β₂)·g_t²               second moment (variance)
-m̂_t = m_t / (1 − β₁ᵗ)   ,   v̂_t = v_t / (1 − β₂ᵗ)     bias correction
-θ_t = θ_{t−1} − η · m̂_t / (√v̂_t + ε)           parameter update
-```
+$$\begin{aligned}
+m_t &= \beta_1 m_{t-1} + (1 - \beta_1)\, g_t && \text{first moment (momentum)}\\[1pt]
+v_t &= \beta_2 v_{t-1} + (1 - \beta_2)\, g_t^2 && \text{second moment (variance)}\\[1pt]
+\hat{m}_t &= \frac{m_t}{1 - \beta_1^{\,t}}, \qquad \hat{v}_t = \frac{v_t}{1 - \beta_2^{\,t}} && \text{bias correction}\\[3pt]
+\theta_t &= \theta_{t-1} - \eta\, \frac{\hat{m}_t}{\sqrt{\hat{v}_t} + \varepsilon} && \text{parameter update}
+\end{aligned}$$
 
 *(Suggested readings: Kingma et al., 2014 for Adam; Loshchilov et al., 2017 for
 AdamW's decoupled weight decay.)*
 
 **Bottleneck: memory.** The lecture puts an NVIDIA H100 on screen and notes its
-**limited memory, `O(10s of GB)`** — 80 GB for the flagship.
+**limited memory, $O(\text{10s of GB})$** — 80 GB for the flagship.
 
 > **Intuition — do the arithmetic, because it is shocking.** Take a 7B-parameter
 > model in mixed-precision training. Parameters in FP32: 28 GB. Gradients: 28 GB.
@@ -301,15 +301,15 @@ COMPUTE O = PV
 WRITE O to HBM
 ```
 
-The `n × n` score matrix is written to slow memory and read back — **twice**.
+The $n \times n$ score matrix is written to slow memory and read back — **twice**.
 
 **Idea 1: minimise reads/writes to HBM with "tiling" via SRAM.** Load blocks of
-`Q`, `K`, `V` into SRAM, compute a block of the output `O` entirely on-chip, and
-write only `O` back to HBM. The `n × n` intermediate is **never materialised in
+$Q$, $K$, $V$ into SRAM, compute a block of the output $O$ entirely on-chip, and
+write only $O$ back to HBM. The $n \times n$ intermediate is **never materialised in
 HBM at all**.
 
 **The trick that makes tiling possible:** *there is no need to compute the full
-`QKᵀ` before applying softmax.* Softmax appears to need a global normaliser
+$QK^{\top}$ before applying softmax.* Softmax appears to need a global normaliser
 (the sum over the whole row), but it can be computed incrementally: maintain a
 running maximum and a running sum per row, and rescale the partial output as new
 blocks arrive. This is the **online softmax**, and it is the mathematical heart
@@ -324,13 +324,13 @@ runtime!**
 
 > **Intuition — this is the single most important idea in the lecture for
 > understanding modern ML performance.** Attention is not compute-bound, it is
-> **memory-bandwidth-bound**. The arithmetic is cheap; moving the `n × n` matrix
+> **memory-bandwidth-bound**. The arithmetic is cheap; moving the $n \times n$ matrix
 > in and out of HBM is what takes the time. So an algorithm that does *more*
 > arithmetic while doing *less* memory movement runs faster — which sounds
 > paradoxical until you internalise that a modern GPU can perform hundreds of
 > floating-point operations in the time it takes to fetch one number from HBM.
 > "More FLOPs, but less runtime" should be read as the general lesson, not a
-> curiosity. There is a second, enormous benefit: because the `n × n` matrix is
+> curiosity. There is a second, enormous benefit: because the $n \times n$ matrix is
 > never stored, FlashAttention's memory use is **linear** in sequence length
 > rather than quadratic. Long-context models are practical largely because of
 > this. Note that unlike Longformer or sliding-window attention, FlashAttention is
@@ -376,7 +376,7 @@ halving of width.
 >
 > The high-precision master weights are needed for a subtler reason. A single
 > update is often smaller than the smallest increment representable at the
-> weight's magnitude — you would compute `w + tiny` and get back exactly `w`, so
+> weight's magnitude — you would compute $w + \text{tiny}$ and get back exactly $w$, so
 > the model would silently stop learning. Accumulating updates into an FP32
 > master copy lets thousands of tiny updates add up into a change large enough to
 > matter, with the low-precision copy re-derived each step for the forward pass.
@@ -573,20 +573,18 @@ it.
 **LoRA = Low-Rank Adaptation** (Hu et al., 2021). **Approximate the weight
 update with the product of two low-rank matrices:**
 
-```
-W = W₀ + B·A
-```
+$$W = W_0 + BA$$
 
-where `W₀` is the frozen pretrained weight matrix (`d × d`), and `B` is `d × r`,
-`A` is `r × d`, with the **rank `r ≪ d`** (typical values 8, 16, 64).
+where $W_0$ is the frozen pretrained weight matrix ($d \times d$), and $B$ is $d \times r$,
+$A$ is $r \times d$, with the **rank $r \ll d$** (typical values 8, 16, 64).
 
-- **Before:** regular finetuning optimises the **full** matrix `W` — `d²`
+- **Before:** regular finetuning optimises the **full** matrix $W$ — $d^2$
   parameters.
 
-- **After:** LoRA freezes `W₀` and optimises only `A` and `B` — `2·d·r`
+- **After:** LoRA freezes $W_0$ and optimises only $A$ and $B$ — $2dr$
   parameters.
 
-With `d = 4096` and `r = 8`, that is 16.7M parameters down to 65k: a **256×**
+With $d = 4096$ and $r = 8$, that is 16.7M parameters down to 65k: a **256×**
 reduction for that matrix.
 
 **Discussion:**
@@ -601,32 +599,32 @@ reduction for that matrix.
 > only a *low-rank* change to its weights. This connects directly to the point
 > made about SFT above: you are not teaching new capability, you are selecting a
 > behaviour that already exists. Selecting a mode is a low-dimensional operation;
-> it does not need the full `d²` degrees of freedom.
+> it does not need the full $d^2$ degrees of freedom.
 >
 > Two implementation details worth knowing, since they explain the training
-> dynamics below. `A` is initialised randomly and `B` is initialised to **zero**,
-> so that `B·A = 0` at the start and the model begins exactly as the pretrained
-> one — no discontinuity. And the update is usually scaled by `α/r` so that
+> dynamics below. $A$ is initialised randomly and $B$ is initialised to **zero**,
+> so that $BA = 0$ at the start and the model begins exactly as the pretrained
+> one — no discontinuity. And the update is usually scaled by $\alpha/r$ so that
 > changing the rank does not require retuning the learning rate.
 
 ### The big practical benefit: swap matrices = swap tasks
 
-Because `W₀` never changes, one copy of the base model serves every task; you
-just attach a different `(A, B)` pair:
+Because $W_0$ never changes, one copy of the base model serves every task; you
+just attach a different $(A, B)$ pair:
 
-```
-W₀ + B_spam·A_spam            → spam detection task
-W₀ + B_sentiment·A_sentiment  → sentiment extraction task
-W₀ + B_translate·A_translate  → translation task
-```
+$$\begin{aligned}
+W_0 + B_{\mathrm{spam}} A_{\mathrm{spam}} &\;\to\; \text{spam detection task}\\[1pt]
+W_0 + B_{\mathrm{sentiment}} A_{\mathrm{sentiment}} &\;\to\; \text{sentiment extraction task}\\[1pt]
+W_0 + B_{\mathrm{translate}} A_{\mathrm{translate}} &\;\to\; \text{translation task}
+\end{aligned}$$
 
 > **Intuition — this is why LoRA took over industry, and it is a serving argument
-> more than a training one.** Full finetuning for `k` tasks means `k` complete
+> more than a training one.** Full finetuning for $k$ tasks means $k$ complete
 > copies of a multi-hundred-gigabyte model, each needing its own GPUs. With LoRA
 > you hold **one** base model in memory and swap adapters of a few megabytes.
 > You can serve hundreds of task-specific or customer-specific variants from a
 > single deployment, and switching costs a memory copy rather than a model load.
-> Note also that at inference you can *merge* `B·A` into `W₀` once, so a LoRA
+> Note also that at inference you can *merge* $BA$ into $W_0$ once, so a LoRA
 > model has **exactly zero added latency** compared to the base — unlike adapter
 > layers, which insert extra computation into the forward pass. Zero-overhead
 > inference plus tiny checkpoints is the whole story.
@@ -634,7 +632,7 @@ W₀ + B_translate·A_translate  → translation task
 ### Where to apply LoRA
 
 - **Originally:** as experimented in the LoRA paper — the attention projections,
-  typically `W_Q` and `W_V`.
+  typically $W_Q$ and $W_V$.
 
 - **Updated guidance** (Schulman et al., 2025, *LoRA Without Regret*): the
   **MLP / feed-forward layers are the most important location**, and current
@@ -650,9 +648,9 @@ From *LoRA Without Regret*, two empirical differences from full finetuning:
 - **LoRA does poorly at large batch size** compared with full finetuning.
 
 > **Intuition.** Both follow from the same cause. The effective update is
-> `ΔW = B·A`, a product of two trained factors, so gradients with respect to each
-> factor are attenuated — a given step in `A` and `B` produces a smaller change in
-> `W` than the same-sized step in `W` would. You compensate with a larger learning
+> $\Delta W = BA$, a product of two trained factors, so gradients with respect to each
+> factor are attenuated — a given step in $A$ and $B$ produces a smaller change in
+> $W$ than the same-sized step in $W$ would. You compensate with a larger learning
 > rate. The batch-size finding is the more surprising and more practically
 > important one: the usual "bigger batch = more stable" intuition does not carry
 > over, so if you scale up your batch and your LoRA run degrades, the batch size
@@ -664,9 +662,9 @@ From *LoRA Without Regret*, two empirical differences from full finetuning:
 
 The arrangement:
 
-- `W₀` is **stored quantised** (4-bit),
-- `A` and `B` are **stored in full precision**,
-- **computations are performed in full precision** — `W₀` is dequantised
+- $W_0$ is **stored quantised** (4-bit),
+- $A$ and $B$ are **stored in full precision**,
+- **computations are performed in full precision** — $W_0$ is dequantised
   block-by-block on the fly as it is used.
 
 **Trick: use 4-bit NormalFloat (NF4) to best split the space.** Standard INT8

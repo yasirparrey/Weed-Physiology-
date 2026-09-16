@@ -50,8 +50,8 @@ token. The observation that starts MoE: **not all weights are useful in the
 forward pass** for a given token. The word "the" does not need the same
 computation as a snippet of Rust.
 
-So: replace one huge block with `n` **experts** `E₁, ..., E_n` plus a small
-**gating network** `G`. For input `x`, the gate produces weights over experts,
+So: replace one huge block with $n$ **experts** $E_1, \dots, E_n$ plus a small
+**gating network** $G$. For input $x$, the gate produces weights over experts,
 and the output is a combination of expert outputs.
 
 - **Dense MoE** — the output is the weighted average of **all** expert outputs,
@@ -61,18 +61,18 @@ and the output is a combination of expert outputs.
   expert outputs, chosen by **top-k selection** (Shazeer et al., 2017,
   *Outrageously Large Neural Networks*).
 
-Sparse is the interesting one, because only `k` experts actually run.
+Sparse is the interesting one, because only $k$ experts actually run.
 
 ### Where MoE goes in a Transformer
 
 **The FFNN sub-layer is replaced by the MoE block.** So instead of one
-feed-forward network per layer you have `FFNN₁ ... FFNN_n` plus a gate `G`. And
+feed-forward network per layer you have $\mathrm{FFNN}_1 \dots \mathrm{FFNN}_n$ plus a gate $G$. And
 critically: **routing is done for each token**, independently — not per sequence,
 not per batch. Token 5 may go to experts 2 and 17 while token 6 goes to experts
 1 and 9.
 
 > **Intuition — why replace the FFNN rather than attention?** Two reasons. The
-> FFNN is where most of the parameters live (with `d_FF = 4·d_model`, the two
+> FFNN is where most of the parameters live (with $d_{\mathrm{FF}} = 4\,d_{\mathrm{model}}$, the two
 > FFNN matrices hold roughly twice the parameters of all four attention
 > projections combined), so that is where sparsity buys the most. And the FFNN is
 > already position-independent — it acts on each token separately — so routing
@@ -97,20 +97,18 @@ distribution collapses onto a few experts and the rest never train.
 **Remedy:** force the other experts to be "part of the game" via an
 **auxiliary loss** (Switch Transformers, Fedus et al., 2021):
 
-```
-L_aux = α · n · Σ_i  f_i · P_i
-```
+$$\mathcal{L}_{\mathrm{aux}} = \alpha \cdot n \cdot \sum_i f_i \, P_i$$
 
-where `f_i` is the **fraction of tokens routed to expert `i`** and `P_i` is the
-**average routing probability for expert `i`**.
+where $f_i$ is the **fraction of tokens routed to expert $i$** and $P_i$ is the
+**average routing probability for expert $i$**.
 
-> **Intuition — why that particular product.** The sum `Σ f_i·P_i` is minimised,
+> **Intuition — why that particular product.** The sum $\sum_i f_i P_i$ is minimised,
 > subject to both vectors summing to 1, when the load is spread uniformly; it
 > blows up when one expert takes both a large share of tokens and a high average
-> probability. Multiplying the two is the trick: `f_i` is a hard count and has no
-> gradient, while `P_i` is differentiable. So the gradient flows into the gate
-> through `P_i`, scaled by how overloaded that expert currently is — the more
-> tokens expert `i` is hogging, the harder the loss pushes the gate's probability
+> probability. Multiplying the two is the trick: $f_i$ is a hard count and has no
+> gradient, while $P_i$ is differentiable. So the gradient flows into the gate
+> through $P_i$, scaled by how overloaded that expert currently is — the more
+> tokens expert $i$ is hogging, the harder the loss pushes the gate's probability
 > for it down.
 >
 > Why does collapse happen at all? A classic rich-get-richer loop. An expert that
@@ -153,35 +151,33 @@ whole thing is fed back:
 ```
 
 Mechanically, at each step: run the decoder stack, take the final-layer vector
-at the **last** position, project it to vocabulary size `V` with the output
+at the **last** position, project it to vocabulary size $V$ with the output
 matrix to get **logits**, and turn logits into probabilities.
 
 ### Where the probabilities come from — softmax with temperature
 
-```
-p_i = exp(z_i / T) / Σ_j exp(z_j / T)
-```
+$$p_i = \frac{\exp(z_i / T)}{\sum_j \exp(z_j / T)}$$
 
-where `z` are the logits and `T` is the **temperature**.
+where $z$ are the logits and $T$ is the **temperature**.
 
 **Impact of temperature:**
 
-- **Small `T`** — dividing by a small number magnifies the differences between
-  logits, so the distribution becomes **sharper**; in the limit `T → 0` it
+- **Small $T$** — dividing by a small number magnifies the differences between
+  logits, so the distribution becomes **sharper**; in the limit $T \to 0$ it
   becomes a point mass on the argmax (equivalent to greedy decoding).
 
-- **High `T`** — differences are flattened, the distribution becomes more
-  **uniform**; in the limit `T → ∞` you sample uniformly at random from the
+- **High $T$** — differences are flattened, the distribution becomes more
+  **uniform**; in the limit $T \to \infty$ you sample uniformly at random from the
   vocabulary.
 
 > **Intuition.** Temperature does not change the *ranking* of tokens, only how
-> much probability mass the leaders keep. `T < 1` for tasks with one right answer
-> (extraction, classification, code, LLM-as-a-judge in Lecture 8); `T` around 1
-> for creative writing. `T` above about 1.2 usually produces incoherence, because
-> the tail of a `V`-sized vocabulary contains an enormous amount of nonsense and
+> much probability mass the leaders keep. $T < 1$ for tasks with one right answer
+> (extraction, classification, code, LLM-as-a-judge in Lecture 8); $T$ around 1
+> for creative writing. $T$ above about 1.2 usually produces incoherence, because
+> the tail of a $V$-sized vocabulary contains an enormous amount of nonsense and
 > flattening the distribution hands it real probability. The suggested reading
 > "Defeating Nondeterminism in LLM Inference" (He et al., 2025) makes the further
-> point that even `T = 0` is not truly deterministic in practice — batching and
+> point that even $T = 0$ is not truly deterministic in practice — batching and
 > floating-point reduction order change results run to run.
 
 ### Decoding strategy 1: greedy decoding
@@ -197,17 +193,17 @@ often gets stuck in loops.
 
 ### Decoding strategy 2: beam search
 
-**Keep the `k` paths that are the most likely.** At each step, expand every one
-of the `k` surviving beams by every possible next token, score the resulting
-sequences by cumulative probability, and keep the best `k`.
+**Keep the $k$ paths that are the most likely.** At each step, expand every one
+of the $k$ surviving beams by every possible next token, score the resulting
+sequences by cumulative probability, and keep the best $k$.
 
-The lecture's worked example with `k = 3`: from `[BOS]` the candidates are
+The lecture's worked example with $k = 3$: from `[BOS]` the candidates are
 `a`, `cute`, `the`; expanding `cute` gives `cute teddy` (0.7), `cute bear`,
 `cute fluffy` (0.2), and so on; the search continues until beams terminate at
 `[EOS]`.
 
 **Limitations:** needs more computation, and **lacks diversity/creativity** —
-the `k` beams tend to be near-identical variations of one another, differing by
+the $k$ beams tend to be near-identical variations of one another, differing by
 a word.
 
 > **Intuition.** Beam search dominates machine translation, where there really is
@@ -226,16 +222,16 @@ distribution occasionally draws a genuinely terrible token from the long tail,
 and one bad token derails everything that follows. Hence two truncation
 strategies:
 
-- **Top-k** — sample among the `k` most probable tokens only (e.g. `k = 4`),
+- **Top-k** — sample among the $k$ most probable tokens only (e.g. $k = 4$),
   renormalising over them.
 
 - **Top-p (nucleus)** — sample from the **smallest set of tokens whose
-  cumulative probability is ≥ `p`** (e.g. `p = 90%`).
+  cumulative probability is ≥ $p$** (e.g. $p = 90\%$).
 
 > **Intuition — why top-p is generally preferred over top-k.** The right number
 > of plausible next tokens varies enormously with context. After "The capital of
 > France is" there is essentially one; after "She opened the door and saw" there
-> are thousands. Top-k with a fixed `k` is either too permissive in the first
+> are thousands. Top-k with a fixed $k$ is either too permissive in the first
 > case (admitting three wrong countries) or too restrictive in the second
 > (arbitrarily cutting off good options). Top-p adapts automatically: it takes
 > few tokens when the model is confident and many when it is not, because it
@@ -259,7 +255,7 @@ format."*, you want exactly:
 
 **Idea: only allow "valid" next tokens.** At each step you know, from a grammar
 or schema, which tokens could legally come next; you mask the logits of all
-others to `−∞` before the softmax, so they cannot be sampled at all.
+others to $-\infty$ before the softmax, so they cannot be sampled at all.
 
 The lecture's step-by-step: from `[BOS]` the candidates might be `{`, `the`, `}`
 — only `{` is legal for JSON, so it is forced. Having emitted `{`, the candidates
@@ -373,7 +369,7 @@ A: It will be one year older than its age this year, which was 4.
 tokens: higher cost and latency**.
 
 > **Intuition — why writing more helps a model think.** A Transformer performs a
-> fixed amount of computation per generated token: `N` layers, once. Some problems
+> fixed amount of computation per generated token: $N$ layers, once. Some problems
 > genuinely need more sequential steps than that — a multi-step arithmetic
 > problem, a logical deduction with intermediate conclusions. Forcing the answer
 > out in one token asks the model to do all that work in one forward pass, which
@@ -390,7 +386,7 @@ tokens: higher cost and latency**.
 performance.**
 
 Sample **several** chains of thought for the same question (which requires
-`T > 0`), extract the final answer from each, and take a **majority vote**:
+$T > 0$), extract the final answer from each, and take a **majority vote**:
 
 - *"It will be one year older than its age this year, which was 4. Hence, it
   will be 5."* → 5
@@ -452,23 +448,23 @@ generating token 100 means running attention over the whole prefix from
 scratch — recomputing the keys and values for tokens 1–99 that you already
 computed when generating token 99.
 
-**Idea: keep keys and values in a cache.** At each step, compute `k` and `v` for
+**Idea: keep keys and values in a cache.** At each step, compute $k$ and $v$ for
 the *new* token only, append them to the cache, and compute attention using the
-new query against the entire cached `K` and `V`.
+new query against the entire cached $K$ and $V$.
 
 > **Intuition — why K and V but not Q.** Each generation step has exactly one
 > query: the one belonging to the token you are currently predicting from. That
 > query is needed once and then never again. Keys and values, by contrast, are
 > needed at *every* future step, and — crucially — they never change, because
 > causal masking means token 5's key does not depend on token 6. So they are
-> perfectly cacheable. The saving is large: it turns per-step cost from `O(n²)`
-> to `O(n)`, making total generation `O(n²)` instead of `O(n³)`.
+> perfectly cacheable. The saving is large: it turns per-step cost from $O(n^2)$
+> to $O(n)$, making total generation $O(n^2)$ instead of $O(n^3)$.
 >
 > **The cost is memory, and that cost drives the next three techniques.** The
-> cache size is `2 · n_tokens · N_layers · n_kv_heads · d_head · bytes`. For a
+> cache size is $2 \cdot n_{\mathrm{tokens}} \cdot N_{\mathrm{layers}} \cdot n_{\mathrm{kv\ heads}} \cdot d_{\mathrm{head}} \cdot \text{bytes}$. For a
 > large model with a long context this reaches tens of gigabytes per sequence —
 > often exceeding the model weights. Every optimisation that follows is an attack
-> on this number: GQA reduces `n_kv_heads`, latent attention reduces `d_head`,
+> on this number: GQA reduces $n_{\mathrm{kv\ heads}}$, latent attention reduces $d_{\mathrm{head}}$,
 > PagedAttention reduces the waste in how it is stored.
 
 This also explains the two distinct phases of LLM inference, worth naming even
@@ -481,9 +477,9 @@ each single token).
 ### Grouped-query attention (architectural change)
 
 Repeated from Lecture 2, now with its true motivation. In vanilla MHA,
-`#query heads = #key heads = #value heads = h`. In **GQA**, key/value heads are
-**shared within groups of queries**: `#query = h`, `#key = #value = G < h`.
-MQA is the `G = 1` extreme. The cache shrinks by a factor of `h/G`.
+$\#\text{query heads} = \#\text{key heads} = \#\text{value heads} = h$. In **GQA**, key/value heads are
+**shared within groups of queries**: $\#\text{query} = h$, $\#\text{key} = \#\text{value} = G < h$.
+MQA is the $G = 1$ extreme. The cache shrinks by a factor of $h/G$.
 
 ### PagedAttention (memory management)
 
@@ -513,11 +509,11 @@ a per-sequence block table mapping logical positions to physical blocks.
 ### Multi-head latent attention (embedding representations)
 
 **DeepSeek-V2.** **Goal: reduce the dimension of K and V stored in memory** —
-the per-head `d_head` is *too big*.
+the per-head $d_{\mathrm{head}}$ is *too big*.
 
 **Solution: store compressed representations instead.**
 
-- **Before:** for each token you store `h` full-size key vectors and `h`
+- **Before:** for each token you store $h$ full-size key vectors and $h$
   full-size value vectors.
 
 - **After:** you store one **shared low-dimensional latent vector** per token.
@@ -533,7 +529,7 @@ the up-projections are absorbed into the attention computation.
 > and each head has its own learned readout from it". That is strictly more
 > expressive than GQA at comparable cache size, which is why DeepSeek reported
 > both a smaller cache *and* better quality than GQA. The clever part is that the
-> up-projection matrices can be algebraically folded into `W_Q` and `W_O`, so you
+> up-projection matrices can be algebraically folded into $W_Q$ and $W_O$, so you
 > never actually materialise the full-size keys and values — the compression is
 > free at inference. RoPE needs special handling here, since rotation does not
 > commute with the folding, which is why the paper carries a small
@@ -546,20 +542,20 @@ are validated by a target (big) model.**
 
 **The procedure:**
 
-1. The **draft LLM** autoregressively generates `k` candidate tokens cheaply —
+1. The **draft LLM** autoregressively generates $k$ candidate tokens cheaply —
    e.g. from `[BOS] my teddy bear` it proposes `is cute and smart` — recording
-   its probabilities `P₁, ..., P_k`.
+   its probabilities $P_1, \dots, P_k$.
 
 2. The **target LLM** processes the whole proposed sequence
    `[BOS] my teddy bear is cute and smart` in **one parallel forward pass**,
-   producing its own probabilities `Q₁, ..., Q_k, Q_{k+1}`.
+   producing its own probabilities $Q_1, \dots, Q_k, Q_{k+1}$.
 
 3. Accept or reject each proposed token in order:
-   - if `Q_i(token) ≥ P_i(token)` → **accept**;
-   - otherwise → accept with probability `Q_i(token) / P_i(token)`, and
-     **reject** with probability `1 − Q_i(token)/P_i(token)`.
+   - if $Q_i(\mathrm{token}) \ge P_i(\mathrm{token})$ → **accept**;
+   - otherwise → accept with probability $Q_i(\mathrm{token})/P_i(\mathrm{token})$, and
+     **reject** with probability $1 - Q_i(\mathrm{token})/P_i(\mathrm{token})$.
    - **If a rejection happens, re-sample the next token from the residual
-     distribution `[Q_i − P_i]₊` (normalised) and exit** the loop for this round.
+     distribution $[Q_i - P_i]_+$ (normalised) and exit** the loop for this round.
 
 Then start again from the new accepted prefix.
 
@@ -568,23 +564,23 @@ Then start again from the new accepted prefix.
 > **identically** to sampling from the target model directly. Speculative
 > decoding is not an approximation; it changes the speed and nothing else. The
 > reason it wins is the asymmetry noted under KV caching: decoding is
-> memory-bandwidth-bound, so verifying `k` tokens in one parallel pass costs
+> memory-bandwidth-bound, so verifying $k$ tokens in one parallel pass costs
 > barely more wall-clock time than generating one token, since either way you
 > must stream the model's weights through the compute units once. If the draft
 > model agrees with the target on, say, 70% of tokens — and it will, because most
 > tokens in text are easy, being punctuation, common words, and forced
-> continuations — you get most of those `k` tokens for the price of one big-model
+> continuations — you get most of those $k$ tokens for the price of one big-model
 > pass. Typical speedups are 2–3×.
 >
-> The `[Q_i − P_i]₊` residual is what makes the maths exact. When you reject, you
-> must not simply sample from `Q` — the rejection itself carries information, and
-> sampling from `Q` again would bias the result. You sample from the part of `Q`
+> The $[Q_i - P_i]_+$ residual is what makes the maths exact. When you reject, you
+> must not simply sample from $Q$ — the rejection itself carries information, and
+> sampling from $Q$ again would bias the result. You sample from the part of $Q$
 > that the draft *under*-weighted, which precisely repairs the discrepancy.
 
 ### Multi-token prediction (MTP)
 
-**Gloeckle et al., 2024.** **Idea: train `k` prediction heads**, so that from
-position `t` the model directly predicts positions `t+1, t+2, ..., t+k`.
+**Gloeckle et al., 2024.** **Idea: train $k$ prediction heads**, so that from
+position $t$ the model directly predicts positions $t+1, t+2, \dots, t+k$.
 
 The selling point stated in the lecture: **the same model is both draft and
 target**. You no longer need a separate small model — the extra heads produce
@@ -592,7 +588,7 @@ the speculative continuation, and the main head verifies it.
 
 > **Intuition.** Beyond the inference speedup, there is a training benefit that
 > the paper emphasises: predicting several tokens ahead forces the representation
-> at position `t` to encode information about the *near future*, not merely the
+> at position $t$ to encode information about the *near future*, not merely the
 > immediate next token. That is a denser learning signal and it measurably
 > improves quality on tasks like code generation, where you must plan a few
 > tokens ahead. DeepSeek-V3 uses MTP both as a training objective and as a

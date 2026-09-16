@@ -36,22 +36,22 @@ up to 2048, and there is no principled way to invent one.
 
 Instead of learning the vectors, compute them:
 
-```
-PE(pos, 2i)   = sin( pos / 10000^(2i/d_model) )
-PE(pos, 2i+1) = cos( pos / 10000^(2i/d_model) )
-```
+$$\begin{aligned}
+\mathrm{PE}(\mathit{pos},\, 2i) &= \sin\!\left(\frac{\mathit{pos}}{10000^{\,2i/d_{\mathrm{model}}}}\right)\\[6pt]
+\mathrm{PE}(\mathit{pos},\, 2i+1) &= \cos\!\left(\frac{\mathit{pos}}{10000^{\,2i/d_{\mathrm{model}}}}\right)
+\end{aligned}$$
 
 Even dimensions get sines, odd dimensions get cosines, and the wavelength grows
-geometrically with the dimension index `i` — fast oscillation in early
+geometrically with the dimension index $i$ — fast oscillation in early
 dimensions, very slow oscillation in later ones.
 
 The lecture shows two plots: the **values of the embeddings** as a heat map over
 (position × dimension), and the **similarity between positions**, i.e. the dot
-product `PE(pos_a) · PE(pos_b)`, which peaks on the diagonal and decays smoothly
+product $\mathrm{PE}(\mathit{pos}_a) \cdot \mathrm{PE}(\mathit{pos}_b)$, which peaks on the diagonal and decays smoothly
 away from it.
 
 **Benefit:** it **extends to any sequence length** — the formula is defined for
-every `pos`, so nothing needs retraining.
+every $\mathit{pos}$, so nothing needs retraining.
 
 > **Intuition — why sinusoids of many frequencies?** Think of it as a binary
 > counter made continuous. In binary, the lowest bit flips every step, the next
@@ -59,8 +59,8 @@ every `pos`, so nothing needs retraining.
 > identify a large range of integers. The sinusoidal encoding does the same with
 > continuous-valued "bits" at geometrically spaced frequencies. Two properties
 > follow. First, uniqueness: no two positions within a huge range share an
-> encoding. Second — and this is the important one — `PE(pos + k)` is a *fixed
-> linear function* of `PE(pos)` for any offset `k`, because shifting a sinusoid
+> encoding. Second — and this is the important one — $\mathrm{PE}(\mathit{pos}+k)$ is a *fixed
+> linear function* of $\mathrm{PE}(\mathit{pos})$ for any offset $k$, because shifting a sinusoid
 > is a rotation in its (sin, cos) plane. So a linear layer *can* in principle
 > learn to compute relative offsets from these absolute encodings. The slow
 > smooth decay of the similarity plot is what lets the model perceive
@@ -79,9 +79,7 @@ interact is the attention layer, the natural conclusion is:
 
 Add a bias term to the score matrix before the softmax:
 
-```
-score_ij = (q_i · k_j)/√d_k  +  b(i − j)
-```
+$$\mathrm{score}_{ij} = \frac{q_i \cdot k_j}{\sqrt{d_k}} + b(i-j)$$
 
 Two well-known instances:
 
@@ -91,8 +89,8 @@ Two well-known instances:
   profile.
 
 - **ALiBi** (Press et al., 2021, *Train Short, Test Long*) — the bias is
-  **linear, deterministic, and not bounded**: `b(i − j) = −m·|i − j|`, with a
-  different slope `m` per head. Nothing is learned; a token is penalised in
+  **linear, deterministic, and not bounded**: $b(i-j) = -m\,|i-j|$, with a
+  different slope $m$ per head. Nothing is learned; a token is penalised in
   proportion to how far away it is, and different heads have different
   "attention spans" set by their slopes.
 
@@ -110,41 +108,36 @@ Two well-known instances:
 **Su et al., 2021 (RoFormer).** The idea: instead of *adding* anything, **rotate
 the query and key vectors** by an angle proportional to their position.
 
-In two dimensions, rotating a vector by angle `mθ` (where `m` is the position):
+In two dimensions, rotating a vector by angle $m\theta$ (where $m$ is the position):
 
-```
-R(mθ) = [  cos(mθ)   −sin(mθ) ]
-        [  sin(mθ)    cos(mθ) ]
-```
+$$R(m\theta) = \begin{bmatrix} \cos(m\theta) & -\sin(m\theta)\\ \sin(m\theta) & \cos(m\theta) \end{bmatrix}$$
 
-and we set `q_m ← R(mθ)·q_m`, `k_n ← R(nθ)·k_n`.
+and we set $q_m \gets R(m\theta)\,q_m$, $k_n \gets R(n\theta)\,k_n$.
 
-**Extension to `d > 2`:** split the `d`-dimensional vector into `d/2` consecutive
+**Extension to $d > 2$:** split the $d$-dimensional vector into $d/2$ consecutive
 pairs of coordinates and **rotate every block of dimension 2**, each block with
-its own frequency `θ_i` (again geometrically spaced, as in the sinusoidal
+its own frequency $\theta_i$ (again geometrically spaced, as in the sinusoidal
 scheme).
 
 **Why this is elegant — the relative-distance property.** Because rotations
 compose by adding angles, and because a rotation preserves dot products:
 
-```
-(R(mθ)·q)ᵀ · (R(nθ)·k)  =  qᵀ · R((n − m)θ) · k
-```
+$$\big(R(m\theta)\,q\big)^{\top} \big(R(n\theta)\,k\big) = q^{\top} R\big((n-m)\theta\big)\, k$$
 
-The attention score between positions `m` and `n` depends **only on `n − m`**.
+The attention score between positions $m$ and $n$ depends **only on $n - m$**.
 You inject absolute positions into the vectors, and the attention mechanism
 automatically sees only relative distance. No bias table, no extra parameters,
 nothing added to the residual stream.
 
 **Long-term decay.** The lecture also shows that the relative upper bound on the
-attention weight *decays* as `|n − m|` grows: as the many frequency components
+attention weight *decays* as $|n-m|$ grows: as the many frequency components
 drift out of phase with each other, distant pairs tend towards lower scores.
 So RoPE bakes in a mild, automatic recency prior too.
 
 > **Intuition — the clock analogy.** Give every position a set of clock hands
 > spinning at different speeds, one pair of hands per pair of dimensions. A query
 > and a key "match" strongly when their hands line up. Since each hand's angle
-> is `position × its own speed`, the alignment between two tokens depends only on
+> is $\text{position} \times \text{its own speed}$, the alignment between two tokens depends only on
 > how many steps apart they are — like reading the phase difference between two
 > clocks rather than the absolute time on either. The reason RoPE is the default
 > in essentially every modern open LLM (LLaMA, Mistral, Qwen, Gemma, DeepSeek) is
@@ -155,7 +148,7 @@ So RoPE bakes in a mild, automatic recency prior too.
 
 <!-- -->
 
-> **Watch out — RoPE is applied to `q` and `k` only, never to `v`.** The
+> **Watch out — RoPE is applied to $q$ and $k$ only, never to $v$.** The
 > position information belongs in the *matching* computation, not in the content
 > being copied. If you rotated the values you would be corrupting the payload.
 
@@ -163,16 +156,16 @@ So RoPE bakes in a mild, automatic recency prior too.
 
 ## 2.2 Layer normalisation
 
-The `Add & Norm` boxes in the architecture diagram are `LN`, layer
-normalisation (Ba et al., 2016). For a vector `x` of dimension `d`:
+The `Add & Norm` boxes in the architecture diagram are $\mathrm{LN}$, layer
+normalisation (Ba et al., 2016). For a vector $x$ of dimension $d$:
 
-```
-μ  = (1/d) · Σ_i x_i
-σ² = (1/d) · Σ_i (x_i − μ)²
-LN(x) = γ ⊙ (x − μ)/√(σ² + ε) + β
-```
+$$\begin{aligned}
+\mu &= \frac{1}{d}\sum_i x_i \qquad
+\sigma^2 = \frac{1}{d}\sum_i (x_i - \mu)^2\\[6pt]
+\mathrm{LN}(x) &= \gamma \odot \frac{x - \mu}{\sqrt{\sigma^2 + \varepsilon}} + \beta
+\end{aligned}$$
 
-where `γ` and `β` are learned per-dimension scale and shift, and `ε` is a small
+where $\gamma$ and $\beta$ are learned per-dimension scale and shift, and $\varepsilon$ is a small
 constant for numerical safety. **Benefit: helps training stability and
 convergence.**
 
@@ -193,26 +186,21 @@ enormously (Xiong et al., 2020).
 **Post-Norm** — the original 2017 arrangement, normalisation *after* the
 residual addition:
 
-```
-x ← LN( x + Sublayer(x) )
-```
+$$x \;\gets\; \mathrm{LN}\big(x + \mathrm{Sublayer}(x)\big)$$
 
 **Pre-Norm** — normalisation *before* the sub-layer, with the residual added
 afterwards, unnormalised:
 
-```
-x ← x + Sublayer( LN(x) )
-```
+$$x \;\gets\; x + \mathrm{Sublayer}\big(\mathrm{LN}(x)\big)$$
 
 **Nowadays: Pre-Norm.** And, additionally, **RMSNorm** (Zhang et al., 2019)
 instead of full LayerNorm:
 
-```
-RMS(x)     = √( (1/d)·Σ_i x_i² )
-RMSNorm(x) = γ ⊙ x / RMS(x)
-```
+$$\mathrm{RMS}(x) = \sqrt{\frac{1}{d}\sum_i x_i^2}
+\qquad\qquad
+\mathrm{RMSNorm}(x) = \gamma \odot \frac{x}{\mathrm{RMS}(x)}$$
 
-i.e. drop the mean subtraction and the shift `β`; only rescale by the root mean
+i.e. drop the mean subtraction and the shift $\beta$; only rescale by the root mean
 square. So the modern default is **Pre-Norm + RMSNorm**.
 
 > **Intuition — why Pre-Norm won.** In the Post-Norm arrangement, every residual
@@ -237,16 +225,16 @@ square. So the modern default is **Pre-Norm + RMSNorm**.
 
 ## 2.3 Making attention cheaper
 
-All of this exists because of the `O(n²)` cost established in Lecture 1.
+All of this exists because of the $O(n^2)$ cost established in Lecture 1.
 
 ### Sparse attention: Longformer (Beltagy et al., 2020)
 
-Full attention is an `n × n` grid where every cell is computed. Longformer's
+Full attention is an $n \times n$ grid where every cell is computed. Longformer's
 observation is that most of those cells are near-worthless: language is mostly
 local. So restrict which cells you compute:
 
-- **Sliding-window attention (SWA):** each token attends only to a window of `w`
-  neighbours on each side. Cost drops from `O(n²)` to `O(n·w)`, linear in `n`.
+- **Sliding-window attention (SWA):** each token attends only to a window of $w$
+  neighbours on each side. Cost drops from $O(n^2)$ to $O(n \cdot w)$, linear in $n$.
 
 - **Global attention on selected tokens:** a small number of designated tokens
   (`[CLS]`, or task-specific ones such as the question tokens in QA) attend to
@@ -260,10 +248,10 @@ lecture makes the illuminating comparison to the **receptive field** in
 convolutional networks.
 
 > **Intuition — the receptive-field argument, which is the crux.** A single
-> sliding-window layer with window `w` lets a token see `w` neighbours. Stack two
-> such layers and its effective reach is `2w`, since its neighbours have
-> themselves already gathered from *their* neighbours. After `L` layers the
-> receptive field is `L·w`. With `w = 4096` and 32 layers, information can travel
+> sliding-window layer with window $w$ lets a token see $w$ neighbours. Stack two
+> such layers and its effective reach is $2w$, since its neighbours have
+> themselves already gathered from *their* neighbours. After $L$ layers the
+> receptive field is $L \cdot w$. With $w = 4096$ and 32 layers, information can travel
 > over 100k tokens — while every individual attention computation stays cheap and
 > linear. This is exactly how CNNs see whole images through small 3×3 filters. The
 > trade-off is real, though: information from far away arrives *compressed*,
@@ -275,34 +263,32 @@ convolutional networks.
 
 A different axis of saving. In vanilla **multi-head attention (MHA)**:
 
-```
-#query heads = #key heads = #value heads = h
-```
+$$\#\text{query heads} \;=\; \#\text{key heads} \;=\; \#\text{value heads} \;=\; h$$
 
 The idea is to **share key/value heads within groups of queries**:
 
-- **MHA** — `h` query heads, `h` key heads, `h` value heads. Maximum expressive
+- **MHA** — $h$ query heads, $h$ key heads, $h$ value heads. Maximum expressive
   power, maximum memory.
 
-- **GQA (Grouped-Query Attention)** — `h` query heads, but only `G` key heads
-  and `G` value heads, with `G < h`. Query heads are partitioned into `G` groups;
+- **GQA (Grouped-Query Attention)** — $h$ query heads, but only $G$ key heads
+  and $G$ value heads, with $G < h$. Query heads are partitioned into $G$ groups;
   all queries in a group share one K/V pair.
 
-- **MQA (Multi-Query Attention)** — the extreme: `h` query heads, **1** key head
+- **MQA (Multi-Query Attention)** — the extreme: $h$ query heads, **1** key head
   and **1** value head. Every query head shares the same keys and values.
 
-So `#query = h`, `#key = #value = G`, with `G = h` recovering MHA and `G = 1`
+So $\#\text{query} = h$, $\#\text{key} = \#\text{value} = G$, with $G = h$ recovering MHA and $G = 1$
 recovering MQA.
 
 > **Intuition — why this is worth doing.** The saving is not really in FLOPs, it
 > is in the **KV cache** (Lecture 3). During generation you must keep, for every
 > layer and every head, the keys and values of every token generated so far. That
-> cache scales as `2 · n · h · d_head · N_layers`, and for long conversations it
+> cache scales as $2 \cdot n \cdot h \cdot d_{\mathrm{head}} \cdot N_{\mathrm{layers}}$, and for long conversations it
 > becomes the single largest consumer of GPU memory — often larger than the model
 > weights. Cutting the key/value head count by 8× cuts the cache by 8×, which
 > means you can serve 8× more concurrent users on the same hardware, or support
 > 8× longer contexts. MQA is the cheapest but measurably degrades quality; GQA
-> with `G = 8` was found to keep essentially all the quality at most of the
+> with $G = 8$ was found to keep essentially all the quality at most of the
 > saving, which is why it is the standard choice today (LLaMA 2/3, Mistral).
 > This material is repeated in Lecture 3 under inference optimisation, which
 > tells you how central it is.
@@ -463,9 +449,9 @@ The prediction is read off the `[CLS]` token's final representation.
 
 **Model:**
 
-- `L` — number of layers,
-- `H` — hidden layer size, i.e. the embedding dimension,
-- `A` — number of attention heads operating in parallel.
+- $L$ — number of layers,
+- $H$ — hidden layer size, i.e. the embedding dimension,
+- $A$ — number of attention heads operating in parallel.
 
 **Data:**
 
@@ -577,7 +563,7 @@ the teacher's full output *probability distribution*.
 
 ### DistilBERT (Sanh et al., 2019)
 
-Distil BERT-Base (`N = 12` layers) down to **`N = 6` layers**. Result:
+Distil BERT-Base ($N = 12$ layers) down to **$N = 6$ layers**. Result:
 **~1.6× faster** while retaining **~97% of the performance**.
 
 ### RoBERTa (Liu et al., 2019)

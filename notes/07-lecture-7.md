@@ -209,7 +209,7 @@ document for the purposes of improving search retrieval of the chunk. Answer
 only with the succinct context and nothing else.
 ```
 
-Each chunk `i` becomes `Context i + Chunk i`, and that is what gets embedded.
+Each chunk $i$ becomes $\text{Context } i + \text{Chunk } i,$, and that is what gets embedded.
 
 **The cost problem, and the fix: prompt caching.** This prompt includes the
 **whole document** once per chunk, so a 100-chunk document means passing the full
@@ -251,32 +251,31 @@ Re-Ranker(user prompt, {chunk d, chunk b, chunk a, chunk c})
 ### Quantifying retrieval performance
 
 **Setup: evaluate whether the retrieved chunks are relevant.** Some chunks are
-labelled relevant; a ranking is produced; you look at the top `k`.
+labelled relevant; a ranking is produced; you look at the top $k$.
 
 **Normalised Discounted Cumulative Gain at k (NDCG@k):**
 
-```
-DCG@k  = Σ_{i=1..k}  rel_i / log₂(i + 1)
-IDCG@k = the same quantity if the ranking were perfect
-NDCG@k = DCG@k / IDCG@k
-```
+$$\begin{aligned}
+\mathrm{DCG@}k &= \sum_{i=1}^{k} \frac{\mathrm{rel}_i}{\log_2(i+1)}\\[4pt]
+\mathrm{IDCG@}k &= \text{the same quantity if the ranking were perfect}\\[4pt]
+\mathrm{NDCG@}k &= \mathrm{DCG@}k \,/\, \mathrm{IDCG@}k
+\end{aligned}$$
 
 **Reciprocal Rank at k (RR@k):**
 
-```
-RR@k = 1 / (rank of the first relevant chunk)     [0 if none in the top k]
-```
+$$\mathrm{RR@}k = \frac{1}{\text{rank of the first relevant chunk}}
+\qquad [\,0 \text{ if none in the top } k\,]$$
 
 **Recall at k:** of all the relevant chunks that exist, what fraction appear in
-the top `k`?
+the top $k$?
 
-**Precision at k:** of the `k` chunks retrieved, what fraction are relevant?
+**Precision at k:** of the $k$ chunks retrieved, what fraction are relevant?
 
 > **Intuition — which metric to use when, because they answer different
 > questions.** *Recall@k* is the metric for **step 1**: the only unforgivable
 > failure at the candidate stage is that the right chunk is not in the list at
 > all, since nothing downstream can recover from that. *NDCG@k* is the metric for
-> **step 2**: it is position-sensitive (the `1/log₂(i+1)` discount means rank 1 is
+> **step 2**: it is position-sensitive (the $1/\log_2(i+1)$ discount means rank 1 is
 > worth much more than rank 10) and handles graded relevance, so it captures
 > whether the reranker put the best material first — which matters because of the
 > lost-in-the-middle effect. *RR@k* is the right metric when there is exactly one
@@ -489,12 +488,12 @@ Insert a **router** before the LLM:
 
 ### Standardisation: MCP
 
-**Motivation: avoid duplication of tool implementations.** With `m` LLM
-applications and `n` tools you have `m × n` bespoke integrations to write and
+**Motivation: avoid duplication of tool implementations.** With $m$ LLM
+applications and $n$ tools you have $m \times n$ bespoke integrations to write and
 maintain.
 
 **MCP = Model Context Protocol** (Anthropic, 2024). **Idea: connect tools and
-data to LLMs in a standard way** — turning `m × n` into `m + n`.
+data to LLMs in a standard way** — turning $m \times n$ into $m + n$.
 
 **Architecture:**
 

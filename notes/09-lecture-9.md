@@ -23,7 +23,7 @@ Multi-Query Transformer Models from Multi-Head Checkpoints*, Ainslie et al.,
 2023), and the encoder-only / decoder-only / encoder-decoder taxonomy.
 
 **Lecture 3 — Large Language Models.** Mixture of experts replacing the FFNN with
-`FFNN₁...FFNNₙ` plus a gate `G`, routed per token; the Mixtral analysis of what
+$\mathrm{FFNN}_1\dots\mathrm{FFNN}_n$ plus a gate $G$, routed per token; the Mixtral analysis of what
 experts specialise in; sampling, temperature and decoding strategies.
 
 **Lecture 4 — LLM training.** Kaplan scaling laws; the Chinchilla
@@ -86,11 +86,11 @@ Image Recognition at Scale*.**
 
 **The end-to-end example from the lecture:**
 
-1. Take the image and cut it into fixed-size **patches** of `P × P` pixels
+1. Take the image and cut it into fixed-size **patches** of $P \times P$ pixels
    (16×16 in the paper).
 
-2. **Flatten** each patch into a vector of length `P·P·C` (C = colour channels)
-   and pass it through a **linear projection** to dimension `D`. Each patch is
+2. **Flatten** each patch into a vector of length $P \cdot P \cdot C$ (C = colour channels)
+   and pass it through a **linear projection** to dimension $D$. Each patch is
    now a token.
 
 3. **Prepend a `[CLS]` token**, exactly as in BERT.
@@ -109,7 +109,7 @@ Image Recognition at Scale*.**
 > only genuinely new component is the patch projection that turns a grid of pixels
 > into a sequence of vectors. Patching is also what makes it affordable: a 224×224
 > image has 50,176 pixels, and attention over that many tokens is impossible at
-> `O(n²)`, but 16×16 patches reduce it to 196 tokens, which is an ordinary
+> $O(n^2)$, but 16×16 patches reduce it to 196 tokens, which is an ordinary
 > sequence length. The paper's central finding was that ViT *underperforms* CNNs on
 > ImageNet-scale data and *outperforms* them once pretrained on much larger
 > datasets — the inductive-bias trade-off, measured.
@@ -253,8 +253,8 @@ Models*.)*
 - **performance** — quality does not yet match the best autoregressive models.
 
 > **Intuition — where the speedup comes from, and what it costs.** An ARM needs
-> `n` forward passes to produce `n` tokens. A diffusion LM needs however many
-> denoising steps you choose — typically far fewer than `n` — and each step fills
+> $n$ forward passes to produce $n$ tokens. A diffusion LM needs however many
+> denoising steps you choose — typically far fewer than $n$ — and each step fills
 > in many positions. That is the 10× figure.
 >
 > There is a second, more conceptual advantage. Autoregressive generation commits
@@ -483,7 +483,7 @@ Top of mind:
 If you want a single thread through the nine lectures, it is this. The
 Transformer replaced recurrence with attention because attention parallelises
 (L1), and everything since has been the consequences of that choice: engineering
-around its `O(n²)` cost and its position-blindness (L2), scaling it into a
+around its $O(n^2)$ cost and its position-blindness (L2), scaling it into a
 language model and making inference affordable (L3), training it at a scale where
 memory and precision dominate the design (L4), then discovering that a model
 which merely predicts text is not a model that behaves well — so aligning it to

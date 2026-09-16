@@ -45,7 +45,7 @@ translation, question answering, summarisation, open-ended text generation.
 - **Precision** — of the items predicted positive, what fraction really were?
 - **Recall** — of the items that really are positive, what fraction did we find?
 - **F1** — the harmonic mean of precision and recall,
-  `F1 = 2·P·R / (P + R)`, which punishes a model that is excellent at one and
+  $F_1 = 2PR/(P+R)$, which punishes a model that is excellent at one and
   terrible at the other.
 
 For NER specifically, these are computed **at token level, per entity type** —
@@ -163,11 +163,11 @@ unambiguously.
 
 ### Why one-hot encoding is not enough
 
-The naive representation of a vocabulary of size `V` is a one-hot vector: a
-`V`-dimensional vector of zeros with a single 1 at the token's index. Two
+The naive representation of a vocabulary of size $V$ is a one-hot vector: a
+$V$-dimensional vector of zeros with a single 1 at the token's index. Two
 problems, both fatal:
 
-1. **Size.** `V` is typically 30,000–100,000+. Every token is a vector that
+1. **Size.** $V$ is typically 30,000–100,000+. Every token is a vector that
    large, almost entirely zeros.
 
 2. **No notion of similarity.** Every pair of distinct one-hot vectors is
@@ -175,11 +175,11 @@ problems, both fatal:
    from *kitten* as it is from *bulldozer*. All the structure of language is
    thrown away.
 
-The fix is a **learned embedding**: a dense vector of dimension `d` (with
-`d ≪ V`) per token, whose values are trained. Mechanically this is a lookup
-table — a `V × d` matrix — and looking up a token is exactly the same operation
+The fix is a **learned embedding**: a dense vector of dimension $d$ (with
+$d \ll V$) per token, whose values are trained. Mechanically this is a lookup
+table — a $V \times d$ matrix — and looking up a token is exactly the same operation
 as multiplying its one-hot vector by that matrix. Now similarity is meaningful:
-tokens that behave alike end up nearby in the `d`-dimensional space.
+tokens that behave alike end up nearby in the $d$-dimensional space.
 
 ### Word2vec (Mikolov et al., 2013)
 
@@ -197,12 +197,12 @@ Two standard proxy tasks:
 - **Skip-gram** — the reverse: given the centre word, predict the surrounding
   context words.
 
-**The architecture** is deliberately shallow: an input layer of size `V`, one
-hidden layer of size `d`, an output layer of size `V`. No non-linearity of
+**The architecture** is deliberately shallow: an input layer of size $V$, one
+hidden layer of size $d$, an output layer of size $V$. No non-linearity of
 consequence, no depth.
 
 **The worked example in the lecture** uses next-word prediction over
-`A cute teddy bear is reading`, with `V = 6` and `d = 2`:
+`A cute teddy bear is reading`, with $V = 6$ and $d = 2$:
 
 - Input `A` as one-hot `[1,0,0,0,0,0]`.
 - The hidden layer produces its embedding, e.g. `[0.2, 0.9]`.
@@ -215,7 +215,7 @@ consequence, no depth.
 
 After training on enough text, the hidden-layer weights *are* your embedding
 table, and they exhibit the famous geometric regularities (vector arithmetic
-like `king − man + woman ≈ queen`).
+like $\text{king} - \text{man} + \text{woman} \approx \text{queen}$).
 
 > **Intuition — why a throwaway task produces useful vectors.** The only way for
 > a network this simple to predict context words well is to place words that
@@ -234,14 +234,14 @@ like `king − man + woman ≈ queen`).
 
 A class of network where connections form a **temporal sequence**: the network
 processes one token at a time and carries a hidden state forward. In general
-form, at step `t`:
+form, at step $t$:
 
-```
-a_t = g₁(W_aa·a_{t−1} + W_ax·x_t + b_a)
-y_t = g₂(W_ya·a_t + b_y)
-```
+$$\begin{aligned}
+a_t &= g_1\big(W_{aa}\,a_{t-1} + W_{ax}\,x_t + b_a\big)\\[2pt]
+y_t &= g_2\big(W_{ya}\,a_t + b_y\big)
+\end{aligned}$$
 
-The crucial property is **weight sharing across time**: the same `W` matrices
+The crucial property is **weight sharing across time**: the same $W$ matrices
 are applied at every step, so the network can handle sequences of any length.
 
 The lecture animates this on the running example: feed `A`, predict `cute`;
@@ -262,16 +262,16 @@ one vector overwritten at each step, an LSTM cell maintains a *cell state* and
 uses learned **gates** to decide what to forget, what to write, and what to
 expose:
 
-```
-Γ_f = σ(W_f·[a_{t−1}, x_t] + b_f)        forget gate
-Γ_u = σ(W_u·[a_{t−1}, x_t] + b_u)        update / input gate
-Γ_o = σ(W_o·[a_{t−1}, x_t] + b_o)        output gate
-c̃_t = tanh(W_c·[a_{t−1}, x_t] + b_c)     candidate cell content
-c_t  = Γ_f ⊙ c_{t−1} + Γ_u ⊙ c̃_t        new cell state
-a_t  = Γ_o ⊙ tanh(c_t)                   new hidden state
-```
+$$\begin{aligned}
+\Gamma_f &= \sigma\big(W_f\,[a_{t-1}, x_t] + b_f\big) && \text{forget gate}\\[1pt]
+\Gamma_u &= \sigma\big(W_u\,[a_{t-1}, x_t] + b_u\big) && \text{update / input gate}\\[1pt]
+\Gamma_o &= \sigma\big(W_o\,[a_{t-1}, x_t] + b_o\big) && \text{output gate}\\[1pt]
+\tilde{c}_t &= \tanh\big(W_c\,[a_{t-1}, x_t] + b_c\big) && \text{candidate cell content}\\[1pt]
+c_t &= \Gamma_f \odot c_{t-1} + \Gamma_u \odot \tilde{c}_t && \text{new cell state}\\[1pt]
+a_t &= \Gamma_o \odot \tanh(c_t) && \text{new hidden state}
+\end{aligned}$$
 
-> **Intuition.** The reason gating helps is the term `Γ_f ⊙ c_{t−1}`. In a plain
+> **Intuition.** The reason gating helps is the term $\Gamma_f \odot c_{t-1}$. In a plain
 > RNN, information from step 1 reaching step 50 must survive being multiplied by
 > a weight matrix and squashed through a non-linearity 49 times; gradients
 > flowing back shrink (or blow up) geometrically. That is the **vanishing
@@ -290,8 +290,8 @@ a_t  = Γ_o ⊙ tanh(c_t)                   new hidden state
 
 > **Intuition — the two words that killed RNNs.** "Slow computations" is not a
 > minor engineering gripe, it is the whole reason Transformers exist. An RNN's
-> step `t` needs the output of step `t−1`, so training on a sequence of length
-> `n` takes `n` sequential steps *no matter how many GPUs you own*. You cannot
+> step $t$ needs the output of step $t-1$, so training on a sequence of length
+> $n$ takes $n$ sequential steps *no matter how many GPUs you own*. You cannot
 > parallelise along the sequence. When the 2010s handed the field enormous
 > corpora and enormous GPU clusters, the bottleneck stopped being ideas and
 > started being "how much text can you push through per second" — and there, an
@@ -341,20 +341,20 @@ You Need*.
 ### Query, key, value
 
 The mechanism is best understood by analogy to a soft dictionary lookup. Each
-token produces three vectors, all linear projections of its embedding `x`:
+token produces three vectors, all linear projections of its embedding $x$:
 
-```
-q = x·W_Q      the query:  "what am I looking for?"
-k = x·W_K      the key:    "what do I offer to others?"
-v = x·W_V      the value:  "what do I actually contribute if attended to?"
-```
+$$\begin{aligned}
+q &= x\,W_Q && \text{the \textbf{query}: “what am I looking for?”}\\[1pt]
+k &= x\,W_K && \text{the \textbf{key}: “what do I offer to others?”}\\[1pt]
+v &= x\,W_V && \text{the \textbf{value}: “what do I contribute if attended to?”}
+\end{aligned}$$
 
 For one query, attention proceeds in four steps:
 
-1. **Score** the query against every key by dot product: `score_j = q · k_j`.
+1. **Score** the query against every key by dot product: $\mathrm{score}_j = q \cdot k_j$.
    A large dot product means "this key matches what I was looking for".
 
-2. **Scale** by `√d_k`.
+2. **Scale** by $\sqrt{d_k}$.
 3. **Normalise** the scores into weights with a softmax, so they are positive
    and sum to 1.
 
@@ -363,12 +363,10 @@ For one query, attention proceeds in four steps:
 
 The compact matrix form, applied to all queries at once:
 
-```
-Attention(Q, K, V) = softmax( Q·Kᵀ / √d_k ) · V
-```
+$$\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^{\top}}{\sqrt{d_k}}\right)V$$
 
-where `Q` is `n × d_k`, `K` is `n × d_k`, `V` is `n × d_v`, so `Q·Kᵀ` is the
-`n × n` matrix of all pairwise scores, and the output is `n × d_v`.
+where $Q$ is $n \times d_k$, $K$ is $n \times d_k$, $V$ is $n \times d_v$, so $QK^{\top}$ is the
+$n \times n$ matrix of all pairwise scores, and the output is $n \times d_v$.
 
 > **Intuition — what each piece is for.**
 >
@@ -379,28 +377,28 @@ where `Q` is `n × d_k`, `K` is `n × d_k`, `V` is `n × d_v`, so `Q·Kᵀ` is t
 > token is relevant; the value decides *what gets copied* if it is. A token can
 > be easy to find but contribute something quite different from its identity.
 >
-> *Why divide by `√d_k`?* If the components of `q` and `k` are roughly
-> independent with unit variance, their dot product over `d_k` dimensions has
-> variance about `d_k`, so it grows like `√d_k` in magnitude. Feed large numbers
+> *Why divide by $\sqrt{d_k}$?* If the components of $q$ and $k$ are roughly
+> independent with unit variance, their dot product over $d_k$ dimensions has
+> variance about $d_k$, so it grows like $\sqrt{d_k}$ in magnitude. Feed large numbers
 > into a softmax and it saturates: one weight goes to ~1, the rest to ~0, and
-> the gradient through the softmax approaches zero. Dividing by `√d_k` holds the
+> the gradient through the softmax approaches zero. Dividing by $\sqrt{d_k}$ holds the
 > scores in the regime where softmax is smooth and trainable. It is a
 > variance-normalisation trick, nothing deeper.
 >
 > *Why does this beat recurrence?* Every output position depends on every input
-> position through a *single* matrix multiplication — path length 1, not `n`. So
-> gradients do not have to survive `n` sequential steps, and the whole thing is
+> position through a *single* matrix multiplication — path length 1, not $n$. So
+> gradients do not have to survive $n$ sequential steps, and the whole thing is
 > one big matmul, which is exactly what GPUs are built for.
 
 <!-- -->
 
-> **Watch out.** `V` here is the value matrix, not the vocabulary size. The
+> **Watch out.** $V$ here is the value matrix, not the vocabulary size. The
 > course reuses the letter. Context disambiguates: inside an attention formula
-> it is values; in "`V`: vocabulary size" it is the vocabulary.
+> it is values; in "$V$: vocabulary size" it is the vocabulary.
 
 ### The cost
 
-`Q·Kᵀ` is an `n × n` matrix, so self-attention is **O(n²)** in both time and
+$QK^{\top}$ is an $n \times n$ matrix, so self-attention is **O(n²)** in both time and
 memory with respect to sequence length. This single fact drives an enormous
 amount of later material: sparse attention and sliding windows (Lecture 2), KV
 caching and PagedAttention (Lecture 3), FlashAttention (Lecture 4), and even the
@@ -408,14 +406,14 @@ hardware discussion in Lecture 9.
 
 ### Multi-head attention
 
-Rather than one attention operation of width `d_model`, run `h` of them in
-parallel, each with its own `W_Q`, `W_K`, `W_V` projecting into a smaller `d_k`,
-then concatenate the `h` outputs and pass them through a final projection `W_O`:
+Rather than one attention operation of width $d_{\mathrm{model}}$, run $h$ of them in
+parallel, each with its own $W_Q$, $W_K$, $W_V$ projecting into a smaller $d_k$,
+then concatenate the $h$ outputs and pass them through a final projection $W_O$:
 
-```
-head_i = Attention(X·W_Q^i, X·W_K^i, X·W_V^i)
-MHA(X) = Concat(head_1, ..., head_h) · W_O
-```
+$$\begin{aligned}
+\mathrm{head}_i &= \mathrm{Attention}\big(X W_Q^{\,i},\; X W_K^{\,i},\; X W_V^{\,i}\big)\\[3pt]
+\mathrm{MHA}(X) &= \mathrm{Concat}\big(\mathrm{head}_1, \dots, \mathrm{head}_h\big)\,W_O
+\end{aligned}$$
 
 The benefit stated in the lecture: it lets the model **capture different
 attention features in parallel**, and the explicit comparison offered is to
@@ -426,11 +424,11 @@ attention features in parallel**, and the explicit comparison offered is to
 > head can only implement one relational pattern per layer — softmax forces it
 > to commit its probability mass. But a sentence has several simultaneous
 > relations to track: syntactic subject-of, adjective-modifies, coreference,
-> local phrase structure. With `h` heads, different heads specialise. The
+> local phrase structure. With $h$ heads, different heads specialise. The
 > Transformer paper itself shows heads in layer 5 of 6 doing **anaphora
 > resolution** — tracking what the pronoun "its" refers to — and Lecture 2 opens
 > by displaying exactly that attention map. Note that heads are usually sized so
-> that `h · d_k = d_model`, meaning multi-head attention costs about the same as
+> that $h \cdot d_k = d_{\mathrm{model}}$, meaning multi-head attention costs about the same as
 > single-head attention of full width: you get diversity for free.
 
 ---
@@ -446,8 +444,8 @@ component.
   tokens.
 
 - *Decoder self-attention* (decoder–decoder): output tokens attend to previously
-  generated output tokens. This one must be **masked** so that position `t`
-  cannot see positions `> t`, otherwise the model would cheat at training time
+  generated output tokens. This one must be **masked** so that position $t$
+  cannot see positions $> t$, otherwise the model would cheat at training time
   by reading the answer.
 
 - *Encoder–decoder cross-attention*: queries come from the decoder, keys and
@@ -457,7 +455,7 @@ component.
 
 **A position-wise feed-forward network (FFNN)** after each attention layer: two
 linear layers with a non-linearity between them, applied identically and
-independently at every position, expanding to `d_FF` and back to `d_model`.
+independently at every position, expanding to $d_{\mathrm{FF}}$ and back to $d_{\mathrm{model}}$.
 
 **Positional encoding (PE)**, added to the input embeddings.
 
@@ -468,7 +466,7 @@ in detail at the start of Lecture 2.
 ### Walking the stack
 
 **Input.** Text is tokenised, then each token is mapped to a learned embedding.
-Parameters: `V` (vocabulary size), `d_model` (embedding dimension).
+Parameters: $V$ (vocabulary size), $d_{\mathrm{model}}$ (embedding dimension).
 
 **Positional encoding — "input, with a trick".** Attention as defined is
 *permutation-equivariant*: reorder the input tokens and you reorder the outputs
@@ -481,28 +479,28 @@ that the dot product between two position encodings decays smoothly as the
 distance between the positions grows — the property that makes the encoding
 useful.
 
-**Encoder.** `N` stacked identical layers. Each has self-attention, an FFNN, and
-normalisation. Parameters: `N` layers, `h` heads, `d_FF`/`d_key`/`d_value` for
-sub-layer widths, `d_model` overall.
+**Encoder.** $N$ stacked identical layers. Each has self-attention, an FFNN, and
+normalisation. Parameters: $N$ layers, $h$ heads, $d_{\mathrm{FF}}$/$d_{\mathrm{key}}$/$d_{\mathrm{value}}$ for
+sub-layer widths, $d_{\mathrm{model}}$ overall.
 
 **Output, "shifted right".** The decoder's input is the target sequence offset
-by one position, so that when predicting token `t` the decoder has been given
-tokens `1..t−1`. During translation you begin with a `[BOS]` (beginning of
+by one position, so that when predicting token $t$ the decoder has been given
+tokens $1 \dots t-1$. During translation you begin with a `[BOS]` (beginning of
 sequence) token.
 
-**Decoder.** `N` stacked layers, each with masked self-attention, then
+**Decoder.** $N$ stacked layers, each with masked self-attention, then
 encoder–decoder cross-attention, then an FFNN, with normalisation throughout.
 Same parameter list as the encoder.
 
-**Output head.** A linear projection from `d_model` up to `V`, followed by a
+**Output head.** A linear projection from $d_{\mathrm{model}}$ up to $V$, followed by a
 softmax. As the lecture puts it, this is *a classification problem where the
 classes are words*.
 
 > **Intuition — why "shifted right" and masking are the same idea.** Both exist
 > to enforce causality during *parallel* training. You want to train on the whole
 > target sentence in one forward pass, computing the loss at every position
-> simultaneously — but position `t`'s prediction must not depend on the true
-> token at position `t` or later. Shifting the input right by one handles the
+> simultaneously — but position $t$'s prediction must not depend on the true
+> token at position $t$ or later. Shifting the input right by one handles the
 > "not itself" part; the causal mask on decoder self-attention handles the "not
 > the future" part. At inference time neither is needed as a trick, because you
 > genuinely do not have future tokens: you feed back what you generated.
@@ -514,12 +512,12 @@ capture different features simultaneously; analogous to multiple CNN filters.
 
 **Label smoothing.** Borrowed from a 2015 vision paper whose message was
 *overconfidence is bad*. Instead of a one-hot target (probability 1 on the
-correct token, 0 elsewhere), use a slightly softened target — e.g. `1 − ε` on
-the correct token and `ε` spread over the rest. It prevents overfitting and, in
+correct token, 0 elsewhere), use a slightly softened target — e.g. $1 - \varepsilon$ on
+the correct token and $\varepsilon$ spread over the rest. It prevents overfitting and, in
 the Transformer paper, improved both accuracy and BLEU.
 
 > **Intuition.** A one-hot target instructs the model to drive the correct
-> logit to `+∞` relative to all others — a target it can never reach, so it just
+> logit to $+\infty$ relative to all others — a target it can never reach, so it just
 > keeps sharpening, producing enormous logits and brittle overconfidence. Since
 > language is genuinely ambiguous (several next words are often fine), a target
 > that says "mostly this, but leave a little mass elsewhere" is closer to the
@@ -543,24 +541,24 @@ sequence.
 2. **Add special tokens:** `[BOS] A cute teddy bear is reading . [EOS]`
 3. **Embed** each token → one vector per token.
 4. **Add the position embedding** to each → *position-aware embeddings*.
-5. **Stack** them into a matrix (one row per token, `d_model` columns).
-6. Feed that matrix into the encoder. Multiply it by `W_Q`, `W_K`, `W_V` to get
-   `Q`, `K`, `V`.
+5. **Stack** them into a matrix (one row per token, $d_{\mathrm{model}}$ columns).
+6. Feed that matrix into the encoder. Multiply it by $W_Q$, $W_K$, $W_V$ to get
+   $Q$, $K$, $V$.
 
-7. Compute `Q·Kᵀ`: an `n × n` grid where entry `(i, j)` is how much token `i`
-   attends to token `j`. Softmax each row.
+7. Compute $QK^{\top}$: an $n \times n$ grid where entry $(i, j)$ is how much token $i$
+   attends to token $j$. Softmax each row.
 
-8. Multiply by `V`: each output row is a **weighted average of value vectors,
+8. Multiply by $V$: each output row is a **weighted average of value vectors,
    with weights determined by the query–key match**. That sentence is the whole
    mechanism in one line.
 
-9. This happens `h` times in parallel; concatenate the heads and project through
-   `W_O`.
+9. This happens $h$ times in parallel; concatenate the heads and project through
+   $W_O$.
 
 10. Pass through the feed-forward network. Output: **context-aware encoded
     embeddings** — one vector per input token, each now informed by the whole
     sentence.
-11. Repeat for all `N` encoder layers.
+11. Repeat for all $N$ encoder layers.
 
 **Decoder side** — now generating, one token at a time.
 
@@ -581,6 +579,6 @@ Final output: `Un ours en peluche mignon lit.`
 > Transformer layer does the same thing: *each position replaces its own vector
 > with a weighted mixture of information gathered from other positions, where
 > the weights are computed from content, not from position*. Stack that
-> operation `N` times, with a feed-forward network between rounds to reshape the
+> operation $N$ times, with a feed-forward network between rounds to reshape the
 > mixed information, and you have the architecture that everything in the next
 > eight lectures is built on.

@@ -70,7 +70,7 @@ The reasoning is not a prompting trick applied from outside; it becomes part of
 what the model *is trained to produce*.
 
 > **Intuition — restating the depth-into-length argument, because everything in
-> this lecture rests on it.** A Transformer with `N` layers performs a fixed
+> this lecture rests on it.** A Transformer with $N$ layers performs a fixed
 > number of sequential computation steps per token. A problem needing more
 > sequential steps than that is structurally out of reach in one forward pass — no
 > amount of extra width or training fixes it. Chain of thought escapes the limit
@@ -78,7 +78,7 @@ what the model *is trained to produce*.
 > token gets a full forward pass, and previous conclusions are written into the
 > context where attention can retrieve them. The generated text becomes a scratch
 > pad, and the model's effective computational depth becomes
-> `N × (number of tokens it chooses to think for)`. This is the mechanism behind
+> $N \times (\text{number of tokens it chooses to think for})$. This is the mechanism behind
 > the phrase **test-time scaling**: you can buy more capability at inference by
 > spending more tokens, without changing the weights at all.
 
@@ -127,7 +127,7 @@ line item: tokens you pay for but never see.
 
 The structure is *problem → solution → verification*:
 
-- **Problem:** *"You have `n` teddy bears in a line. Each bear has a size. Find
+- **Problem:** *"You have $n$ teddy bears in a line. Each bear has a size. Find
   the biggest bear that is smaller than the largest bear."*
 
 - **Solution:** the model emits code, e.g.
@@ -165,13 +165,11 @@ Structure: *problem → reasoning → compare against ground truth*:
 
 **"Probability that at least 1 of k attempts succeeds."**
 
-Estimated unbiasedly from `n` sampled attempts of which `c` succeed:
+Estimated unbiasedly from $n$ sampled attempts of which $c$ succeed:
 
-```
-Pass@k = 1 − C(n − c, k) / C(n, k)
-```
+$$\mathrm{Pass@}k = 1 - \frac{\binom{n-c}{k}}{\binom{n}{k}}$$
 
-i.e. one minus the probability that a random subset of `k` attempts contains no
+i.e. one minus the probability that a random subset of $k$ attempts contains no
 successful one.
 
 - **Pass@k** — for use cases where **checking is easy** or you can afford higher
@@ -183,11 +181,11 @@ successful one.
 ### Cons@k
 
 **"Consensus at k"** — equivalent to taking the answer from **majority voting**
-over `k` samples and comparing that with the ground truth (DeepSeek-R1, 2025).
+over $k$ samples and comparing that with the ground truth (DeepSeek-R1, 2025).
 
 > **Intuition — three metrics, three different questions.** *Pass@k* measures
 > whether the ability is present *at all* — can the model find the answer if given
-> `k` tries and a perfect verifier? It is the right metric when you have a checker
+> $k$ tries and a perfect verifier? It is the right metric when you have a checker
 > (compile, run tests) and can retry. *Cons@k* asks whether the model finds the
 > answer *reliably enough that its own majority agrees*, which is the right metric
 > when you have no verifier and must trust one output; it is exactly Lecture 3's
@@ -195,8 +193,8 @@ over `k` samples and comparing that with the ground truth (DeepSeek-R1, 2025).
 > Reporting Pass@64 alongside Pass@1 is informative: a large gap means the
 > knowledge is in there but not reliably surfaced, which is a training problem
 > rather than a capability ceiling. **Lecture 8 adds a fourth relative,
-> `Pass^k`** — the probability that *all* `k` attempts succeed — which measures
-> consistency instead of capability. Do not confuse `Pass@k` with `Pass^k`; they
+> $\mathrm{Pass}^k$** — the probability that *all* $k$ attempts succeed — which measures
+> consistency instead of capability. Do not confuse $\mathrm{Pass@}k$ with $\mathrm{Pass}^k$; they
 > are almost opposites.
 
 ---
@@ -253,9 +251,8 @@ delimiters present and well-formed?
 
 ### Total reward
 
-```
-Rewards = formatting (think delimiters?) + accuracy (correct solution?)
-```
+$$\text{Rewards} = \underbrace{\text{formatting}}_{\text{think delimiters?}}
+\;+\; \underbrace{\text{accuracy}}_{\text{correct solution?}}$$
 
 > **Intuition — why the formatting reward is not just cosmetics.** Two jobs.
 > Practically, it makes the answer extractable: you cannot verify accuracy if you
@@ -308,29 +305,27 @@ unaffordable.
 
 The objective has the same shape as PPO:
 
-```
-maximise  E[ A ]  −  β·KL(π_θ ‖ π_ref)
-          └ maximise ┘   └ don't deviate from old/base ┘
-          advantages
-```
+$$\text{maximise}\quad
+\underbrace{\mathbb{E}\big[A\big]}_{\text{maximise advantages}}
+\;-\; \beta\,
+\underbrace{\mathrm{KL}\big(\pi_\theta \,\|\, \pi_{\mathrm{ref}}\big)}_{\text{don't deviate from old/base}}$$
 
 **The big difference from PPO:**
 
-```
-PPO:   Advantage ≈ Reward − Value function(state)     ← a trained value network
+$$\begin{aligned}
+\textbf{PPO:}\quad &\text{Advantage} \approx \text{Reward} - \text{Value function(state)}
+&& \gets \text{a trained value network}\\[4pt]
+\textbf{GRPO:}\quad &\text{Advantage} \approx \text{Reward} - \mathrm{Avg}(\text{reward of group})
+&& \gets \text{no value network at all}
+\end{aligned}$$
 
-GRPO:  Advantage ≈ Reward − Avg(reward of group)      ← no value network at all
-```
-
-**Mechanically:** for a given prompt, sample a **group** of `G` responses from the
+**Mechanically:** for a given prompt, sample a **group** of $G$ responses from the
 current policy. Score them all. Compute each response's advantage by
 standardising within the group:
 
-```
-A_i = ( r_i − mean(r₁..r_G) ) / std(r₁..r_G)
-```
+$$A_i = \frac{r_i - \mathrm{mean}(r_1 \dots r_G)}{\mathrm{std}(r_1 \dots r_G)}$$
 
-That advantage is then assigned to **every token** of response `i`.
+That advantage is then assigned to **every token** of response $i$.
 
 ### GRPO versus PPO, side by side
 
@@ -372,7 +367,7 @@ initially celebrated as the model "learning to think longer".
 The lecture then shows it is partly an **artifact of the loss normalisation**.
 
 **The problem.** GRPO's loss sums token-level terms and normalises by the number
-of tokens in the response, `1/|y_i|`. That means each token in a **short** output
+of tokens in the response, $1/|y_i|$. That means each token in a **short** output
 carries a **large** weight, and each token in a **long** output carries a
 **small** weight.
 

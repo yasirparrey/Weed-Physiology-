@@ -28,7 +28,7 @@ Three kinds of text appear throughout, and it is worth knowing which is which:
   reading of the slide would leave you with a wrong mental model.
 
 Formulas are written in linear Unicode notation (for example
-`softmax(QKᵀ/√d_k)·V`) so that they read cleanly without needing rendered
+$\mathrm{softmax}\!\big(QK^{\top}\!/\sqrt{d_k}\big)V$) so that they read cleanly without needing rendered
 LaTeX. Where the original slides showed a diagram, the diagram is described in
 words, because the description is what you actually need in order to reason
 about the mechanism.
@@ -83,16 +83,16 @@ worked example".
 
 | Symbol | Meaning |
 |---|---|
-| `V` | vocabulary size (number of distinct tokens the model knows) |
-| `n` | sequence length, in tokens |
-| `d_model` | width of the model's residual stream / embedding dimension |
-| `d_k`, `d_v` | per-head key and value dimensions |
-| `d_FF` | hidden width of the feed-forward sub-layer |
-| `h` | number of attention heads |
-| `N` | number of stacked encoder or decoder layers |
-| `Q`, `K`, `V` | query, key and value matrices inside an attention layer |
-| `θ` | model parameters |
-| `π_θ` | the model viewed as a policy (used from Lecture 5 onwards) |
-| `T` | sampling temperature |
-| `β` | strength of a KL / regularisation term |
+| $V$ | vocabulary size (number of distinct tokens the model knows) |
+| $n$ | sequence length, in tokens |
+| $d_{\mathrm{model}}$ | width of the model's residual stream / embedding dimension |
+| $d_k$, $d_v$ | per-head key and value dimensions |
+| $d_{\mathrm{FF}}$ | hidden width of the feed-forward sub-layer |
+| $h$ | number of attention heads |
+| $N$ | number of stacked encoder or decoder layers |
+| $Q$, $K$, $V$ | query, key and value matrices inside an attention layer |
+| $\theta$ | model parameters |
+| $\pi_\theta$ | the model viewed as a policy (used from Lecture 5 onwards) |
+| $T$ | sampling temperature |
+| $\beta$ | strength of a KL / regularisation term |
 

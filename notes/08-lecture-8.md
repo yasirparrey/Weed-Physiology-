@@ -6,7 +6,7 @@ rating — though the gold standard — does not scale, inter-rater agreement
 limits, LLM-as-a-judge including its biases and best practices, enforcing output
 format, factuality decomposition, the full taxonomy of agentic failure modes,
 and benchmarks (MMLU, AIME, PIQA, SWE-bench, HarmBench, τ-bench) with the
-`Pass^k` metric, Pareto frontiers, data contamination and Goodhart's Law.
+$\mathrm{Pass}^k$ metric, Pareto frontiers, data contamination and Goodhart's Law.
 
 This lecture addresses the last of Lecture 6's four weaknesses: **hard to
 evaluate**.
@@ -47,9 +47,7 @@ misleading, because two raters who both say "useful" 90% of the time will agree
 **The metric:** *"How much better is our agreement than what we'd expect just by
 chance, given how the raters actually use the categories?"*
 
-```
-κ = ( p_observed − p_expected ) / ( 1 − p_expected )
-```
+$$\kappa = \frac{p_{\mathrm{observed}} - p_{\mathrm{expected}}}{1 - p_{\mathrm{expected}}}$$
 
 **Variants: Cohen's kappa** (two raters), **Fleiss' kappa** (many raters),
 **Krippendorff's alpha** (arbitrary numbers of raters, missing data, and ordinal
@@ -62,8 +60,8 @@ or interval scales).
 
 > **Intuition — why kappa is the number to demand, and how to read it.** The
 > numerator is the agreement you achieved above chance; the denominator is the
-> agreement that was *available* above chance. So `κ = 0` means you did no better
-> than coin-flipping and `κ = 1` means perfect. Rough conventions: below 0.4 is
+> agreement that was *available* above chance. So $\kappa = 0$ means you did no better
+> than coin-flipping and $\kappa = 1$ means perfect. Rough conventions: below 0.4 is
 > poor, 0.4–0.6 moderate, 0.6–0.8 substantial, above 0.8 excellent.
 >
 > Here is the practically vital consequence. If your **humans** cannot achieve a
@@ -284,7 +282,7 @@ The consolidated list:
 > approximation of humans, and you must periodically check the approximation.
 >
 > *Low temperature*: an evaluation metric that returns different numbers on
-> identical inputs is not a metric. Note the Lecture 3 caveat that even `T = 0` is
+> identical inputs is not a metric. Note the Lecture 3 caveat that even $T = 0$ is
 > not perfectly deterministic in a batched serving stack.
 
 ### The revised workflow
@@ -327,9 +325,7 @@ origin of the name).
 
 where `wᵢ` is the **importance of the fact**, and
 
-```
-score = Σᵢ wᵢ · 1[fact i is correct]
-```
+$$\text{score} = \sum_i w_i \cdot \mathbb{1}\big[\text{fact } i \text{ is correct}\big]$$
 
 Here that yields **score = 0.60**.
 
@@ -552,28 +548,27 @@ two domains:
 - **Retail agent** — 500 users, 50 products, 1000 orders; ~10 tools and 115
   tasks.
 
-**Evaluation criteria: maximise reward and `pass^k`.**
+**Evaluation criteria: maximise reward and $\mathrm{pass}^k$.**
 
-### `Pass^k` — a metric for consistency/reliability
+### $\mathrm{Pass}^k$ — a metric for consistency/reliability
 
-**"Probability that ALL `k` attempts succeed."**
+**"Probability that ALL $k$ attempts succeed."**
 
-```
-Pass^k = probability that every one of k independent attempts succeeds
-```
+$$\mathrm{Pass}^k = \text{probability that \emph{every one} of } k
+\text{ independent attempts succeeds}$$
 
-> **Watch out — `Pass^k` (caret) is not `Pass@k` (at).** They are near-opposites.
-> `Pass@k` = **at least one** of `k` succeeds — it measures **capability**, and it
-> *increases* with `k`. `Pass^k` = **all** `k` succeed — it measures
-> **consistency**, and it *decreases* with `k`.
+> **Watch out — $\mathrm{Pass}^k$ (caret) is not $\mathrm{Pass@}k$ (at).** They are near-opposites.
+> $\mathrm{Pass@}k$ = **at least one** of $k$ succeeds — it measures **capability**, and it
+> *increases* with $k$. $\mathrm{Pass}^k$ = **all** $k$ succeed — it measures
+> **consistency**, and it *decreases* with $k$.
 >
 > **Intuition — why agents need the second one.** For a coding assistant with a
-> test suite, `Pass@k` is the honest metric: you can retry, and one success is a
+> test suite, $\mathrm{Pass@}k$ is the honest metric: you can retry, and one success is a
 > win. For an agent operating on the real world — booking flights, issuing refunds
 > — retrying is not free and inconsistency is itself the failure. An agent that
 > books the correct flight 80% of the time and a wrong one 20% of the time is
-> unusable regardless of how good its best case is. `Pass^k` exposes exactly this:
-> an agent with 80% per-attempt success has `Pass^5 ≈ 0.33`, which is a fair
+> unusable regardless of how good its best case is. $\mathrm{Pass}^k$ exposes exactly this:
+> an agent with 80% per-attempt success has $\mathrm{Pass}^5 \approx 0.33$, which is a fair
 > description of how it will feel to depend on. τ-bench chose this metric
 > deliberately, and reported numbers on it were sobering.
 
