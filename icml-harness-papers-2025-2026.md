@@ -1,5 +1,8 @@
 # Harness-related papers at ICML, 2025 and 2026
 
+For the categorization of the full ICML corpus for these two years, see
+`icml-2025-2026-category-breakdown.md`.
+
 Scope: ICML main conference only (the `icml` venue in CSrankings, i.e. DBLP `ICML`,
 `ICML (1)`, `ICML (2)`, `ICML (3)`). Workshops, ICML-affiliated events and arXiv-only
 preprints are excluded, as are other CSrankings venues.
