@@ -318,7 +318,9 @@ FHIR paper, one of only two harness-and-RL-training papers at either venue.
 ## Takeaway
 
 Harness research appeared at both venues simultaneously and only in 2026: zero papers at ICML
-2025 and ICLR 2025, then 10 at ICML 2026 and 6 at ICLR 2026 out of 12,114 papers across the two.
+2025 and ICLR 2025, then 10 at ICML 2026 and 6 at ICLR 2026 — 16 papers out of the 12,114 the
+two conferences accepted that year, and out of 19,283 searched across all four
+conference-years.
 
 The two venues split by emphasis. **ICML 2026 leans conceptual and evaluative**: six of its ten
 papers are about evaluating agents or about whether evaluation harnesses are themselves
